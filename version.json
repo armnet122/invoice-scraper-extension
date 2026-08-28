@@ -1,6 +1,6 @@
 {
-  "version": "2.2.0",
-  "downloadUrl": "https://raw.githubusercontent.com/armnet122/invoice-scraper-extension/main/invoice-scraper-extension-v2.2.0.zip",
-  "notes": "Remote auto-update functionality configured for GitHub user armnet122.",
+  "version": "2.3.0",
+  "downloadUrl": "https://raw.githubusercontent.com/armnet122/invoice-scraper-extension/main/invoice-scraper-extension-v2.3.0.zip",
+  "notes": "Added collapsible floating button feature (minimize/expand) & persistent position.",
   "releaseDate": "2026-08-28"
 }
