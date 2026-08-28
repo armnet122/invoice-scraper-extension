@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Invoice # Scraper & Auto-Copier",
-  "version": "2.2.0",
-  "description": "Draggable persistent floating input field that opens invoice URLs in temporary tabs, extracts Invoice #, copies to clipboard, and auto-updates remotely across PCs.",
+  "version": "2.3.0",
+  "description": "Collapsible & draggable persistent floating input field that opens invoice URLs in temporary tabs, extracts Invoice #, copies to clipboard, and auto-updates remotely across PCs.",
   "update_url": "https://raw.githubusercontent.com/armnet122/invoice-scraper-extension/main/updates.xml",
   "permissions": [
     "storage",

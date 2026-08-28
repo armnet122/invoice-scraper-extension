@@ -38,7 +38,7 @@ extApi.storage.onChanged.addListener((changes, area) => {
     
     if (changes.showFloatingInput) {
       isFloatingInputEnabled = changes.showFloatingInput.newValue;
-      const el = document.getElementById('inv-minimal-floating-input');
+      const el = document.getElementById('inv-floating-container');
       if (isFloatingInputEnabled) {
         if (!el) initMinimalFloatingInput();
       } else {
@@ -174,7 +174,10 @@ function makeDraggableAndPersist(element) {
   });
 
   element.addEventListener('mousedown', (e) => {
-    if (e.button !== 0) return; // Only left mouse button
+    if (e.button !== 0) return;
+
+    // Prevent dragging when clicking inside interactive input elements
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
 
     isDragging = true;
     hasMoved = false;
@@ -204,7 +207,6 @@ function makeDraggableAndPersist(element) {
     let newLeft = initialLeft + dx;
     let newTop = initialTop + dy;
 
-    // Keep within viewport boundaries
     const maxLeft = window.innerWidth - element.offsetWidth - 5;
     const maxTop = window.innerHeight - element.offsetHeight - 5;
     newLeft = Math.max(5, Math.min(newLeft, maxLeft));
@@ -218,10 +220,9 @@ function makeDraggableAndPersist(element) {
   document.addEventListener('mouseup', () => {
     if (isDragging) {
       isDragging = false;
-      element.style.cursor = 'text';
+      element.style.cursor = 'default';
       
       if (hasMoved) {
-        // Save custom position to extension storage
         extApi.storage.local.set({
           widgetLeft: element.style.left,
           widgetTop: element.style.top
@@ -232,51 +233,142 @@ function makeDraggableAndPersist(element) {
 }
 
 /**
- * Initializes a strictly minimal persistent floating input field with drag-to-reposition support.
+ * Initializes a minimal persistent floating input field with drag-to-reposition AND minimize-to-pill support.
  */
 function initMinimalFloatingInput() {
-  if (document.getElementById('inv-minimal-floating-input')) return;
+  if (document.getElementById('inv-floating-container')) return;
 
-  const input = document.createElement('input');
-  input.id = 'inv-minimal-floating-input';
-  input.type = 'text';
-  input.placeholder = 'Paste Invoice URL...';
-  input.title = 'Drag to reposition anywhere on screen';
-  input.autocomplete = 'off';
-
-  input.style.cssText = `
+  const container = document.createElement('div');
+  container.id = 'inv-floating-container';
+  container.style.cssText = `
     position: fixed;
     bottom: 20px;
     right: 20px;
-    width: 240px;
-    padding: 10px 14px;
-    font-size: 13px;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    color: #111827;
-    background-color: #FFFFFF;
-    border: 2px solid #4F46E5;
-    border-radius: 24px;
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
-    outline: none;
     z-index: 999999;
-    cursor: text;
-    transition: width 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    user-select: none;
   `;
 
-  input.addEventListener('focus', () => {
-    input.style.width = '300px';
-    input.style.borderColor = '#4338CA';
-    input.style.boxShadow = '0 10px 25px rgba(79, 70, 229, 0.3)';
+  container.innerHTML = `
+    <style>
+      #inv-expanded-wrapper {
+        display: flex;
+        align-items: center;
+        background: #FFFFFF;
+        border: 2px solid #4F46E5;
+        border-radius: 24px;
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+        padding: 4px 6px 4px 14px;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+      }
+      #inv-expanded-wrapper:focus-within {
+        border-color: #4338CA;
+        box-shadow: 0 10px 25px rgba(79, 70, 229, 0.3);
+      }
+      #inv-minimal-floating-input {
+        width: 200px;
+        padding: 6px 0;
+        font-size: 13px;
+        font-family: inherit;
+        color: #111827;
+        background: transparent;
+        border: none;
+        outline: none;
+        cursor: text;
+        transition: width 0.2s ease;
+      }
+      #inv-minimal-floating-input:focus {
+        width: 260px;
+      }
+      #inv-minimize-btn {
+        background: #EEF2FF;
+        color: #4F46E5;
+        border: none;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        font-size: 14px;
+        font-weight: 700;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-left: 6px;
+        transition: background-color 0.15s ease, color 0.15s ease;
+      }
+      #inv-minimize-btn:hover {
+        background: #4F46E5;
+        color: #FFFFFF;
+      }
+      #inv-minimized-pill {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: #4F46E5;
+        color: #FFFFFF;
+        padding: 10px 16px;
+        border-radius: 30px;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        box-shadow: 0 8px 20px rgba(79, 70, 229, 0.35);
+        transition: transform 0.2s ease, background-color 0.2s ease;
+      }
+      #inv-minimized-pill:hover {
+        background: #4338CA;
+        transform: translateY(-2px);
+      }
+    </style>
+
+    <!-- Expanded View -->
+    <div id="inv-expanded-wrapper">
+      <input type="text" id="inv-minimal-floating-input" placeholder="Paste Invoice URL..." autocomplete="off" title="Paste invoice link & press Enter" />
+      <button id="inv-minimize-btn" title="Minimize into floating icon">–</button>
+    </div>
+
+    <!-- Minimized View -->
+    <div id="inv-minimized-pill" style="display: none;" title="Click to expand invoice scraper">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+        <polyline points="14 2 14 8 20 8"></polyline>
+      </svg>
+      <span>Scrape Invoice</span>
+    </div>
+  `;
+
+  document.body.appendChild(container);
+
+  const expandedWrapper = container.querySelector('#inv-expanded-wrapper');
+  const minimizedPill = container.querySelector('#inv-minimized-pill');
+  const minimizeBtn = container.querySelector('#inv-minimize-btn');
+  const input = container.querySelector('#inv-minimal-floating-input');
+
+  // Restore minimized/expanded state from storage
+  extApi.storage.local.get(['widgetMinimized'], (res) => {
+    if (res.widgetMinimized) {
+      expandedWrapper.style.display = 'none';
+      minimizedPill.style.display = 'flex';
+    }
   });
 
-  input.addEventListener('blur', () => {
-    input.style.width = '240px';
-    input.style.borderColor = '#4F46E5';
-    input.style.boxShadow = '0 8px 20px rgba(0, 0, 0, 0.15)';
+  // Handle Minimize click
+  minimizeBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    expandedWrapper.style.display = 'none';
+    minimizedPill.style.display = 'flex';
+    extApi.storage.local.set({ widgetMinimized: true });
   });
 
-  // Enable dragging & position persistence
-  makeDraggableAndPersist(input);
+  // Handle Expand click on minimized pill
+  minimizedPill.addEventListener('click', () => {
+    minimizedPill.style.display = 'none';
+    expandedWrapper.style.display = 'flex';
+    input.focus();
+    extApi.storage.local.set({ widgetMinimized: false });
+  });
+
+  // Enable drag-and-drop repositioning
+  makeDraggableAndPersist(container);
 
   const processFloatingUrl = () => {
     const rawUrl = input.value.trim();
@@ -310,8 +402,6 @@ function initMinimalFloatingInput() {
   input.addEventListener('paste', () => {
     setTimeout(processFloatingUrl, 100);
   });
-
-  document.body.appendChild(input);
 }
 
 /**
@@ -335,17 +425,15 @@ function isValidInvoiceNum(str) {
 function findInvoiceNumber() {
   const currentUrl = window.location.href;
   
-  // Strategy 1: Check URL for UUID or serial candidate
   const uuidMatch = currentUrl.match(/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/i);
   const urlUuidCandidate = uuidMatch ? uuidMatch[1].trim() : null;
 
   const urlMatch = currentUrl.match(/\/invoice\/([A-Za-z0-9\-_]{4,80})/i);
   const urlPathCandidate = (urlMatch && isValidInvoiceNum(urlMatch[1])) ? urlMatch[1].trim() : null;
 
-  // Strategy 2: Table Rows & Key-Value Grids
   const rows = Array.from(document.querySelectorAll('tr, .row, .grid, .flex, li, div'));
   for (const row of rows) {
-    if (row.id === 'inv-minimal-floating-input' || row.closest('#inv-minimal-floating-input')) continue;
+    if (row.id === 'inv-floating-container' || row.closest('#inv-floating-container')) continue;
     const text = row.innerText ? row.innerText.trim() : '';
     if (/\binvoice\b/i.test(text) && (text.includes('#') || /num|no|ref|id/i.test(text))) {
       const cells = Array.from(row.children);
@@ -365,7 +453,6 @@ function findInvoiceNumber() {
     }
   }
 
-  // Strategy 3: Check form controls (<input>, <textarea>, <select>)
   const inputs = Array.from(document.querySelectorAll('input, textarea, select, [contenteditable="true"]'));
   for (const input of inputs) {
     if (input.id === 'inv-minimal-floating-input') continue;
@@ -399,10 +486,9 @@ function findInvoiceNumber() {
     }
   }
 
-  // Strategy 4: Target elements by ID or Class containing invoice/ref
   const specificElements = Array.from(document.querySelectorAll('[id*="invoice"], [id*="inv"], [class*="invoice"], [class*="inv-num"], [class*="inv_num"], [data-field*="invoice"]'));
   for (const el of specificElements) {
-    if (el.id === 'inv-minimal-floating-input' || el.closest('#inv-minimal-floating-input')) continue;
+    if (el.id === 'inv-floating-container' || el.closest('#inv-floating-container')) continue;
     const val = (el.value !== undefined ? el.value : el.innerText) || '';
     const cleaned = val.replace(/^invoice\s*(?:#|no\.?|num(?:ber)?)?\s*[:\-]?\s*/i, '').trim();
     if (isValidInvoiceNum(cleaned)) {
@@ -410,10 +496,9 @@ function findInvoiceNumber() {
     }
   }
 
-  // Strategy 5: Leaf text nodes matching "Invoice #: <value>"
   const textNodes = Array.from(document.querySelectorAll('h1, h2, h3, h4, h5, h6, p, span, td, th, div, b, strong, label, dt, dd'));
   for (const el of textNodes) {
-    if (el.id === 'inv-minimal-floating-input' || el.closest('#inv-minimal-floating-input')) continue;
+    if (el.id === 'inv-floating-container' || el.closest('#inv-floating-container')) continue;
     if (el.children.length > 0 && Array.from(el.children).some(c => c.innerText && c.innerText.trim().length > 0)) {
       continue;
     }
@@ -430,7 +515,6 @@ function findInvoiceNumber() {
     }
   }
 
-  // Strategy 6: Fallback to URL UUID or path candidate
   if (urlUuidCandidate) {
     return urlUuidCandidate;
   }
