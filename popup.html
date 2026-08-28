@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Invoice # Scraper</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="card">
+    <div class="header">
+      <div class="title-wrapper">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+          <polyline points="14 2 14 8 20 8"></polyline>
+          <line x1="16" y1="13" x2="8" y2="13"></line>
+          <line x1="16" y1="17" x2="8" y2="17"></line>
+          <polyline points="10 9 9 9 8 9"></polyline>
+        </svg>
+        <h1>Invoice Scraper</h1>
+      </div>
+      <span id="statusBadge" class="badge searching">v2.2.0</span>
+    </div>
+
+    <!-- Remote Update Banner -->
+    <div id="updateBanner" style="display: none; background: #FEF3C7; border: 1px solid #F59E0B; padding: 8px 10px; border-radius: 6px; font-size: 11px; color: #92400E; margin-bottom: 12px; font-weight: 600;">
+      🚀 New Remote Update Available (<span id="remoteVersionTag"></span>)!
+    </div>
+
+    <!-- Section 1: Headless Background URL Scraper -->
+    <div class="content-box headless-box">
+      <label class="field-label">Scrape URL Headlessly</label>
+      <div class="value-container">
+        <input type="text" id="urlInput" placeholder="Paste invoice URL (e.g. https://a.h/invoice/...)" />
+        <button id="scrapeUrlBtn" class="btn primary">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="23 4 23 10 17 10"></polyline>
+            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+          </svg>
+          Scrape
+        </button>
+      </div>
+    </div>
+
+    <!-- Section 2: Active Tab Invoice -->
+    <div class="content-box">
+      <label class="field-label">Active Tab Invoice #</label>
+      <div class="value-container">
+        <input type="text" id="invoiceValue" readonly value="Scanning page..." />
+        <button id="copyBtn" class="btn secondary" disabled>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+          </svg>
+          Copy
+        </button>
+      </div>
+    </div>
+
+    <!-- Section 3: Settings -->
+    <div class="settings-section">
+      <div class="setting-item">
+        <div class="setting-text">
+          <span class="setting-title">Minimal Floating Input Field</span>
+          <span class="setting-desc">Persistent bottom-right URL input box on all tabs</span>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="showFloatingInputToggle" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="setting-item">
+        <div class="setting-text">
+          <span class="setting-title">In-Field URL Auto-Transform</span>
+          <span class="setting-desc">Replace pasted invoice links in fields with Invoice #</span>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="inFieldTransformToggle" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="setting-item">
+        <div class="setting-text">
+          <span class="setting-title">Auto-Press Enter on Replace</span>
+          <span class="setting-desc">Press Enter / submit form after replacing link</span>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="autoEnterToggle" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="setting-item">
+        <div class="setting-text">
+          <span class="setting-title">On-Screen Toast Notice</span>
+          <span class="setting-desc">Show notification on webpage when copied</span>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="showToastToggle" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+    </div>
+
+    <div style="margin-top: 10px; text-align: center;">
+      <button id="checkUpdatesBtn" class="btn secondary" style="width: 100%; justify-content: center; font-size: 11px;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21.5 2v6h-6M2.13 15.57a10 10 0 1 0 3.95-10.45L2 8"></path>
+        </svg>
+        Check Remote Updates
+      </button>
+    </div>
+
+    <div class="footer">
+      <span>💡 Paste any URL into floating input to scrape & auto-close tab!</span>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
