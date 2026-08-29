@@ -9,8 +9,8 @@ class Program
     static readonly string MANIFEST_JSON = @"{
   ""manifest_version"": 3,
   ""name"": ""Invoice # Scraper & Auto-Copier"",
-  ""version"": ""2.3.0"",
-  ""description"": ""Collapsible & draggable persistent floating input field that opens invoice URLs in temporary tabs, extracts Invoice #, copies to clipboard, and auto-updates remotely across PCs."",
+  ""version"": ""2.4.0"",
+  ""description"": ""Collapsible & draggable floating input field scoped to dvla.gov.gh that opens invoice URLs in temporary tabs, extracts Invoice #, copies to clipboard, and auto-updates remotely across PCs."",
   ""update_url"": ""https://raw.githubusercontent.com/armnet122/invoice-scraper-extension/main/updates.xml"",
   ""permissions"": [
     ""storage"",
@@ -60,6 +60,15 @@ let isInFieldTransformEnabled = true;
 let isAutoEnterEnabled = true;
 let isFloatingInputEnabled = true;
 
+/**
+ * Checks if the current page URL matches the target domain (dvla.gov.gh).
+ * @returns {boolean}
+ */
+function isTargetDomainPage() {
+  const currentUrl = window.location.href.toLowerCase();
+  return currentUrl.includes('dvla.gov.gh');
+}
+
 // Load user preferences from extension storage
 extApi.storage.local.get(['showToast', 'inFieldTransform', 'autoEnter', 'showFloatingInput'], (res) => {
   if (res.showToast !== undefined) isToastEnabled = res.showToast;
@@ -67,7 +76,7 @@ extApi.storage.local.get(['showToast', 'inFieldTransform', 'autoEnter', 'showFlo
   if (res.autoEnter !== undefined) isAutoEnterEnabled = res.autoEnter;
   if (res.showFloatingInput !== undefined) isFloatingInputEnabled = res.showFloatingInput;
   
-  if (isFloatingInputEnabled) {
+  if (isFloatingInputEnabled && isTargetDomainPage()) {
     initMinimalFloatingInput();
   }
 });
@@ -82,7 +91,7 @@ extApi.storage.onChanged.addListener((changes, area) => {
     if (changes.showFloatingInput) {
       isFloatingInputEnabled = changes.showFloatingInput.newValue;
       const el = document.getElementById('inv-floating-container');
-      if (isFloatingInputEnabled) {
+      if (isFloatingInputEnabled && isTargetDomainPage()) {
         if (!el) initMinimalFloatingInput();
       } else {
         if (el) el.remove();
@@ -206,7 +215,6 @@ function makeDraggableAndPersist(element) {
   let initialTop = 0;
   let hasMoved = false;
 
-  // Restore saved position if available
   extApi.storage.local.get(['widgetLeft', 'widgetTop'], (res) => {
     if (res.widgetLeft !== undefined && res.widgetTop !== undefined) {
       element.style.bottom = 'auto';
@@ -218,8 +226,6 @@ function makeDraggableAndPersist(element) {
 
   element.addEventListener('mousedown', (e) => {
     if (e.button !== 0) return;
-
-    // Prevent dragging when clicking inside interactive input elements
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
 
     isDragging = true;
@@ -277,8 +283,10 @@ function makeDraggableAndPersist(element) {
 
 /**
  * Initializes a minimal persistent floating input field with drag-to-reposition AND minimize-to-pill support.
+ * ONLY displayed when the page URL contains ""dvla.gov.gh"".
  */
 function initMinimalFloatingInput() {
+  if (!isTargetDomainPage()) return;
   if (document.getElementById('inv-floating-container')) return;
 
   const container = document.createElement('div');
@@ -386,7 +394,6 @@ function initMinimalFloatingInput() {
   const minimizeBtn = container.querySelector('#inv-minimize-btn');
   const input = container.querySelector('#inv-minimal-floating-input');
 
-  // Restore minimized/expanded state from storage
   extApi.storage.local.get(['widgetMinimized'], (res) => {
     if (res.widgetMinimized) {
       expandedWrapper.style.display = 'none';
@@ -394,7 +401,6 @@ function initMinimalFloatingInput() {
     }
   });
 
-  // Handle Minimize click
   minimizeBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     expandedWrapper.style.display = 'none';
@@ -402,7 +408,6 @@ function initMinimalFloatingInput() {
     extApi.storage.local.set({ widgetMinimized: true });
   });
 
-  // Handle Expand click on minimized pill
   minimizedPill.addEventListener('click', () => {
     minimizedPill.style.display = 'none';
     expandedWrapper.style.display = 'flex';
@@ -410,7 +415,6 @@ function initMinimalFloatingInput() {
     extApi.storage.local.set({ widgetMinimized: false });
   });
 
-  // Enable drag-and-drop repositioning
   makeDraggableAndPersist(container);
 
   const processFloatingUrl = () => {
@@ -1607,15 +1611,15 @@ input:checked + .slider:before {
     static readonly string UPDATES_XML = @"<?xml version=""1.0"" encoding=""UTF-8""?>
 <gupdate xmlns=""http://www.google.com/update2/response"" protocol=""2.0"">
   <app appid=""invoice-scraper-extension"">
-    <updatecheck codebase=""https://raw.githubusercontent.com/armnet122/invoice-scraper-extension/main/invoice-scraper-extension-v2.3.0.zip"" version=""2.3.0"" />
+    <updatecheck codebase=""https://raw.githubusercontent.com/armnet122/invoice-scraper-extension/main/invoice-scraper-extension-v2.4.0.zip"" version=""2.4.0"" />
   </app>
 </gupdate>
 ";
     static readonly string VERSION_JSON = @"{
-  ""version"": ""2.3.0"",
-  ""downloadUrl"": ""https://raw.githubusercontent.com/armnet122/invoice-scraper-extension/main/invoice-scraper-extension-v2.3.0.zip"",
-  ""notes"": ""Added collapsible floating button feature (minimize/expand) & persistent position."",
-  ""releaseDate"": ""2026-08-28""
+  ""version"": ""2.4.0"",
+  ""downloadUrl"": ""https://raw.githubusercontent.com/armnet122/invoice-scraper-extension/main/invoice-scraper-extension-v2.4.0.zip"",
+  ""notes"": ""Scoped floating widget visibility strictly to pages containing dvla.gov.gh."",
+  ""releaseDate"": ""2026-08-29""
 }
 ";
     static readonly string README_MD = @"# Multi-PC Remote Auto-Updating Extension (v2.2.0)

@@ -17,6 +17,15 @@ let isInFieldTransformEnabled = true;
 let isAutoEnterEnabled = true;
 let isFloatingInputEnabled = true;
 
+/**
+ * Checks if the current page URL matches the target domain (dvla.gov.gh).
+ * @returns {boolean}
+ */
+function isTargetDomainPage() {
+  const currentUrl = window.location.href.toLowerCase();
+  return currentUrl.includes('dvla.gov.gh');
+}
+
 // Load user preferences from extension storage
 extApi.storage.local.get(['showToast', 'inFieldTransform', 'autoEnter', 'showFloatingInput'], (res) => {
   if (res.showToast !== undefined) isToastEnabled = res.showToast;
@@ -24,7 +33,7 @@ extApi.storage.local.get(['showToast', 'inFieldTransform', 'autoEnter', 'showFlo
   if (res.autoEnter !== undefined) isAutoEnterEnabled = res.autoEnter;
   if (res.showFloatingInput !== undefined) isFloatingInputEnabled = res.showFloatingInput;
   
-  if (isFloatingInputEnabled) {
+  if (isFloatingInputEnabled && isTargetDomainPage()) {
     initMinimalFloatingInput();
   }
 });
@@ -39,7 +48,7 @@ extApi.storage.onChanged.addListener((changes, area) => {
     if (changes.showFloatingInput) {
       isFloatingInputEnabled = changes.showFloatingInput.newValue;
       const el = document.getElementById('inv-floating-container');
-      if (isFloatingInputEnabled) {
+      if (isFloatingInputEnabled && isTargetDomainPage()) {
         if (!el) initMinimalFloatingInput();
       } else {
         if (el) el.remove();
@@ -163,7 +172,6 @@ function makeDraggableAndPersist(element) {
   let initialTop = 0;
   let hasMoved = false;
 
-  // Restore saved position if available
   extApi.storage.local.get(['widgetLeft', 'widgetTop'], (res) => {
     if (res.widgetLeft !== undefined && res.widgetTop !== undefined) {
       element.style.bottom = 'auto';
@@ -175,8 +183,6 @@ function makeDraggableAndPersist(element) {
 
   element.addEventListener('mousedown', (e) => {
     if (e.button !== 0) return;
-
-    // Prevent dragging when clicking inside interactive input elements
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
 
     isDragging = true;
@@ -234,8 +240,10 @@ function makeDraggableAndPersist(element) {
 
 /**
  * Initializes a minimal persistent floating input field with drag-to-reposition AND minimize-to-pill support.
+ * ONLY displayed when the page URL contains "dvla.gov.gh".
  */
 function initMinimalFloatingInput() {
+  if (!isTargetDomainPage()) return;
   if (document.getElementById('inv-floating-container')) return;
 
   const container = document.createElement('div');
@@ -343,7 +351,6 @@ function initMinimalFloatingInput() {
   const minimizeBtn = container.querySelector('#inv-minimize-btn');
   const input = container.querySelector('#inv-minimal-floating-input');
 
-  // Restore minimized/expanded state from storage
   extApi.storage.local.get(['widgetMinimized'], (res) => {
     if (res.widgetMinimized) {
       expandedWrapper.style.display = 'none';
@@ -351,7 +358,6 @@ function initMinimalFloatingInput() {
     }
   });
 
-  // Handle Minimize click
   minimizeBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     expandedWrapper.style.display = 'none';
@@ -359,7 +365,6 @@ function initMinimalFloatingInput() {
     extApi.storage.local.set({ widgetMinimized: true });
   });
 
-  // Handle Expand click on minimized pill
   minimizedPill.addEventListener('click', () => {
     minimizedPill.style.display = 'none';
     expandedWrapper.style.display = 'flex';
@@ -367,7 +372,6 @@ function initMinimalFloatingInput() {
     extApi.storage.local.set({ widgetMinimized: false });
   });
 
-  // Enable drag-and-drop repositioning
   makeDraggableAndPersist(container);
 
   const processFloatingUrl = () => {
