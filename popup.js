@@ -13,6 +13,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const checkUpdatesBtn = document.getElementById('checkUpdatesBtn');
   const updateBanner = document.getElementById('updateBanner');
   const remoteVersionTag = document.getElementById('remoteVersionTag');
+  const pullUpdateBtn = document.getElementById('pullUpdateBtn');
 
   // Load preferences
   extApi.storage.local.get(['showToast', 'inFieldTransform', 'autoEnter', 'showFloatingInput', 'remoteUpdateAvailable', 'remoteVersion'], (res) => {
@@ -44,6 +45,24 @@ document.addEventListener('DOMContentLoaded', async () => {
     extApi.storage.local.set({ showFloatingInput: showFloatingInputToggle.checked });
   });
 
+  // Handle Pull Update button click
+  if (pullUpdateBtn) {
+    pullUpdateBtn.addEventListener('click', () => {
+      pullUpdateBtn.disabled = true;
+      pullUpdateBtn.textContent = 'Pulling...';
+
+      extApi.runtime.sendMessage({ action: 'PULL_REMOTE_UPDATE' }, (res) => {
+        if (res && res.success) {
+          alert(`✅ Successfully pulled and updated to v${res.version}!\nReloading extension now...`);
+        } else {
+          pullUpdateBtn.disabled = false;
+          pullUpdateBtn.textContent = 'Pull Update';
+          alert(`❌ Failed to pull update:\n${res?.error || 'Unknown error'}`);
+        }
+      });
+    });
+  }
+
   // Handle Check Remote Updates button
   checkUpdatesBtn.addEventListener('click', () => {
     checkUpdatesBtn.disabled = true;
@@ -56,7 +75,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (res && res.remoteUpdateAvailable) {
         updateBanner.style.display = 'block';
         remoteVersionTag.textContent = `v${res.remoteVersion}`;
-        alert(`🚀 Remote update available: v${res.remoteVersion}!\nPlease pull/update your extension folder or run publish script.`);
+        alert(`🚀 Remote update available: v${res.remoteVersion}!\nClick "Pull Update" or click the notification to apply immediately without downloading files.`);
       } else {
         alert('✅ You are running the latest version across your PCs!');
       }

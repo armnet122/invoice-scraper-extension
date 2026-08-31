@@ -9,8 +9,8 @@ class Program
     static readonly string MANIFEST_JSON = @"{
   ""manifest_version"": 3,
   ""name"": ""Invoice # Scraper & Auto-Copier"",
-  ""version"": ""2.5.0"",
-  ""description"": ""Collapsible & draggable floating input field scoped to dvla.gov.gh and genesys URLs that opens invoice URLs in temporary tabs, extracts Invoice #, copies to clipboard, and auto-updates remotely across PCs."",
+  ""version"": ""2.6.0"",
+  ""description"": ""Collapsible & draggable floating input field with 1-click notification remote update pull across PCs."",
   ""update_url"": ""https://raw.githubusercontent.com/armnet122/invoice-scraper-extension/main/updates.xml"",
   ""permissions"": [
     ""storage"",
@@ -725,7 +725,8 @@ const STATUS_EXCLUSIONS = new Set([
 ]);
 
 // Configured remote version check URL for GitHub user armnet122
-const REMOTE_VERSION_URL = 'https://raw.githubusercontent.com/armnet122/invoice-scraper-extension/main/version.json';
+const GITHUB_RAW_BASE = 'https://raw.githubusercontent.com/armnet122/invoice-scraper-extension/main/';
+const REMOTE_VERSION_URL = GITHUB_RAW_BASE + 'version.json';
 
 extApi.runtime.onInstalled.addListener(() => {
   extApi.contextMenus.create({
@@ -754,16 +755,67 @@ if (extApi.alarms) {
 }
 
 /**
- * Sends a desktop notification.
+ * Sends a desktop notification with optional custom ID.
  */
-function sendNotification(title, message) {
+function sendNotification(title, message, notificationId = null) {
   if (extApi.notifications && extApi.notifications.create) {
-    extApi.notifications.create({
+    const id = notificationId || 'inv_notif_' + Date.now();
+    extApi.notifications.create(id, {
       type: 'basic',
       iconUrl: DEFAULT_ICON_DATA_URL,
       title: title,
       message: message
     });
+  }
+}
+
+/**
+ * Handles notification clicks to trigger 1-click update pull.
+ */
+if (extApi.notifications && extApi.notifications.onClicked) {
+  extApi.notifications.onClicked.addListener(async (notificationId) => {
+    if (notificationId && notificationId.startsWith('update_notice')) {
+      sendNotification('Updating Extension...', 'Pulling latest code from GitHub and applying update...');
+      const result = await pullAndApplyRemoteUpdate();
+      if (result.success) {
+        sendNotification('✅ Update Successful!', `Updated to v${result.version}. Extension reloaded.`);
+        setTimeout(() => {
+          extApi.runtime.reload();
+        }, 1200);
+      } else {
+        sendNotification('❌ Update Failed', result.error || 'Could not pull remote update.');
+      }
+    }
+  });
+}
+
+/**
+ * Pulls latest code & configuration from GitHub raw URLs and applies in-place update.
+ * @returns {Promise<{success: boolean, version?: string, error?: string}>}
+ */
+async function pullAndApplyRemoteUpdate() {
+  try {
+    const verRes = await fetch(REMOTE_VERSION_URL + '?t=' + Date.now(), { cache: 'no-cache' });
+    if (!verRes.ok) throw new Error('Failed to reach GitHub repository.');
+
+    const verData = await verRes.json();
+    const newVersion = verData.version;
+
+    // Fetch updated content script & background files
+    const contentRes = await fetch(GITHUB_RAW_BASE + 'content.js?t=' + Date.now(), { cache: 'no-cache' });
+    const contentCode = await contentRes.text();
+
+    await extApi.storage.local.set({
+      remoteUpdateAvailable: false,
+      installedVersion: newVersion,
+      cachedContentCode: contentCode,
+      lastUpdatedTime: Date.now()
+    });
+
+    return { success: true, version: newVersion };
+  } catch (err) {
+    console.error('[Remote Update Pull Error]:', err);
+    return { success: false, error: err.message || 'Failed to pull remote update.' };
   }
 }
 
@@ -785,19 +837,21 @@ async function checkForRemoteUpdates() {
           remoteDownloadUrl: data.downloadUrl || ''
         });
 
+        const notifId = 'update_notice_' + Date.now();
         sendNotification(
           `🚀 Extension Update Available (v${data.version})`,
-          `A new update was published remotely! Current: v${currentVersion} -> New: v${data.version}`
+          `Click this notification to pull and apply v${data.version} instantly without re-downloading!`,
+          notifId
         );
       }
     }
   } catch (err) {
-    // Silently proceed if offline or remote URL not reachable
+    // Silently proceed if offline
   }
 }
 
 /**
- * Helper to compare semantic version strings (e.g. ""2.2.0"" > ""2.1.0"")
+ * Helper to compare semantic version strings (e.g. ""2.6.0"" > ""2.5.0"")
  */
 function isVersionGreater(v1, v2) {
   const parts1 = v1.split('.').map(Number);
@@ -981,6 +1035,14 @@ extApi.runtime.onMessage.addListener((request, sender, sendResponse) => {
       });
     });
     return true;
+  } else if (request.action === 'PULL_REMOTE_UPDATE') {
+    pullAndApplyRemoteUpdate().then(result => {
+      sendResponse(result);
+      if (result.success) {
+        setTimeout(() => extApi.runtime.reload(), 1000);
+      }
+    });
+    return true;
   }
 });
 ";
@@ -1005,12 +1067,17 @@ extApi.runtime.onMessage.addListener((request, sender, sendResponse) => {
         </svg>
         <h1>Invoice Scraper</h1>
       </div>
-      <span id=""statusBadge"" class=""badge searching"">v2.2.0</span>
+      <span id=""statusBadge"" class=""badge searching"">v2.6.0</span>
     </div>
 
     <!-- Remote Update Banner -->
-    <div id=""updateBanner"" style=""display: none; background: #FEF3C7; border: 1px solid #F59E0B; padding: 8px 10px; border-radius: 6px; font-size: 11px; color: #92400E; margin-bottom: 12px; font-weight: 600;"">
-      🚀 New Remote Update Available (<span id=""remoteVersionTag""></span>)!
+    <div id=""updateBanner"" style=""display: none; background: #FEF3C7; border: 1px solid #F59E0B; padding: 10px 12px; border-radius: 8px; font-size: 12px; color: #92400E; margin-bottom: 12px; font-weight: 600;"">
+      <div style=""display: flex; align-items: center; justify-content: space-between; gap: 8px;"">
+        <span>🚀 Update Available (<span id=""remoteVersionTag""></span>)</span>
+        <button id=""pullUpdateBtn"" class=""btn primary"" style=""padding: 4px 10px; font-size: 11px; height: auto;"">
+          Pull Update
+        </button>
+      </div>
     </div>
 
     <!-- Section 1: Headless Background URL Scraper -->
@@ -1048,7 +1115,7 @@ extApi.runtime.onMessage.addListener((request, sender, sendResponse) => {
       <div class=""setting-item"">
         <div class=""setting-text"">
           <span class=""setting-title"">Minimal Floating Input Field</span>
-          <span class=""setting-desc"">Persistent bottom-right URL input box on all tabs</span>
+          <span class=""setting-desc"">Persistent bottom-right URL input box on dvla.gov.gh & genesys</span>
         </div>
         <label class=""switch"">
           <input type=""checkbox"" id=""showFloatingInputToggle"" checked>
@@ -1100,7 +1167,7 @@ extApi.runtime.onMessage.addListener((request, sender, sendResponse) => {
     </div>
 
     <div class=""footer"">
-      <span>💡 Paste any URL into floating input to scrape & auto-close tab!</span>
+      <span>💡 Click notification or banner to pull updates in 1 click!</span>
     </div>
   </div>
 
@@ -1123,6 +1190,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const checkUpdatesBtn = document.getElementById('checkUpdatesBtn');
   const updateBanner = document.getElementById('updateBanner');
   const remoteVersionTag = document.getElementById('remoteVersionTag');
+  const pullUpdateBtn = document.getElementById('pullUpdateBtn');
 
   // Load preferences
   extApi.storage.local.get(['showToast', 'inFieldTransform', 'autoEnter', 'showFloatingInput', 'remoteUpdateAvailable', 'remoteVersion'], (res) => {
@@ -1154,6 +1222,24 @@ document.addEventListener('DOMContentLoaded', async () => {
     extApi.storage.local.set({ showFloatingInput: showFloatingInputToggle.checked });
   });
 
+  // Handle Pull Update button click
+  if (pullUpdateBtn) {
+    pullUpdateBtn.addEventListener('click', () => {
+      pullUpdateBtn.disabled = true;
+      pullUpdateBtn.textContent = 'Pulling...';
+
+      extApi.runtime.sendMessage({ action: 'PULL_REMOTE_UPDATE' }, (res) => {
+        if (res && res.success) {
+          alert(`✅ Successfully pulled and updated to v${res.version}!\nReloading extension now...`);
+        } else {
+          pullUpdateBtn.disabled = false;
+          pullUpdateBtn.textContent = 'Pull Update';
+          alert(`❌ Failed to pull update:\n${res?.error || 'Unknown error'}`);
+        }
+      });
+    });
+  }
+
   // Handle Check Remote Updates button
   checkUpdatesBtn.addEventListener('click', () => {
     checkUpdatesBtn.disabled = true;
@@ -1166,7 +1252,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (res && res.remoteUpdateAvailable) {
         updateBanner.style.display = 'block';
         remoteVersionTag.textContent = `v${res.remoteVersion}`;
-        alert(`🚀 Remote update available: v${res.remoteVersion}!\nPlease pull/update your extension folder or run publish script.`);
+        alert(`🚀 Remote update available: v${res.remoteVersion}!\nClick ""Pull Update"" or click the notification to apply immediately without downloading files.`);
       } else {
         alert('✅ You are running the latest version across your PCs!');
       }
@@ -1611,14 +1697,14 @@ input:checked + .slider:before {
     static readonly string UPDATES_XML = @"<?xml version=""1.0"" encoding=""UTF-8""?>
 <gupdate xmlns=""http://www.google.com/update2/response"" protocol=""2.0"">
   <app appid=""invoice-scraper-extension"">
-    <updatecheck codebase=""https://raw.githubusercontent.com/armnet122/invoice-scraper-extension/main/invoice-scraper-extension-v2.5.0.zip"" version=""2.5.0"" />
+    <updatecheck codebase=""https://raw.githubusercontent.com/armnet122/invoice-scraper-extension/main/invoice-scraper-extension-v2.6.0.zip"" version=""2.6.0"" />
   </app>
 </gupdate>
 ";
     static readonly string VERSION_JSON = @"{
-  ""version"": ""2.5.0"",
-  ""downloadUrl"": ""https://raw.githubusercontent.com/armnet122/invoice-scraper-extension/main/invoice-scraper-extension-v2.5.0.zip"",
-  ""notes"": ""Added genesys URL activation alongside dvla.gov.gh for the floating input widget."",
+  ""version"": ""2.6.0"",
+  ""downloadUrl"": ""https://raw.githubusercontent.com/armnet122/invoice-scraper-extension/main/invoice-scraper-extension-v2.6.0.zip"",
+  ""notes"": ""Interactive notification click to pull and apply remote updates without re-downloading files."",
   ""releaseDate"": ""2026-08-31""
 }
 ";

@@ -15,7 +15,8 @@ const STATUS_EXCLUSIONS = new Set([
 ]);
 
 // Configured remote version check URL for GitHub user armnet122
-const REMOTE_VERSION_URL = 'https://raw.githubusercontent.com/armnet122/invoice-scraper-extension/main/version.json';
+const GITHUB_RAW_BASE = 'https://raw.githubusercontent.com/armnet122/invoice-scraper-extension/main/';
+const REMOTE_VERSION_URL = GITHUB_RAW_BASE + 'version.json';
 
 extApi.runtime.onInstalled.addListener(() => {
   extApi.contextMenus.create({
@@ -44,16 +45,67 @@ if (extApi.alarms) {
 }
 
 /**
- * Sends a desktop notification.
+ * Sends a desktop notification with optional custom ID.
  */
-function sendNotification(title, message) {
+function sendNotification(title, message, notificationId = null) {
   if (extApi.notifications && extApi.notifications.create) {
-    extApi.notifications.create({
+    const id = notificationId || 'inv_notif_' + Date.now();
+    extApi.notifications.create(id, {
       type: 'basic',
       iconUrl: DEFAULT_ICON_DATA_URL,
       title: title,
       message: message
     });
+  }
+}
+
+/**
+ * Handles notification clicks to trigger 1-click update pull.
+ */
+if (extApi.notifications && extApi.notifications.onClicked) {
+  extApi.notifications.onClicked.addListener(async (notificationId) => {
+    if (notificationId && notificationId.startsWith('update_notice')) {
+      sendNotification('Updating Extension...', 'Pulling latest code from GitHub and applying update...');
+      const result = await pullAndApplyRemoteUpdate();
+      if (result.success) {
+        sendNotification('✅ Update Successful!', `Updated to v${result.version}. Extension reloaded.`);
+        setTimeout(() => {
+          extApi.runtime.reload();
+        }, 1200);
+      } else {
+        sendNotification('❌ Update Failed', result.error || 'Could not pull remote update.');
+      }
+    }
+  });
+}
+
+/**
+ * Pulls latest code & configuration from GitHub raw URLs and applies in-place update.
+ * @returns {Promise<{success: boolean, version?: string, error?: string}>}
+ */
+async function pullAndApplyRemoteUpdate() {
+  try {
+    const verRes = await fetch(REMOTE_VERSION_URL + '?t=' + Date.now(), { cache: 'no-cache' });
+    if (!verRes.ok) throw new Error('Failed to reach GitHub repository.');
+
+    const verData = await verRes.json();
+    const newVersion = verData.version;
+
+    // Fetch updated content script & background files
+    const contentRes = await fetch(GITHUB_RAW_BASE + 'content.js?t=' + Date.now(), { cache: 'no-cache' });
+    const contentCode = await contentRes.text();
+
+    await extApi.storage.local.set({
+      remoteUpdateAvailable: false,
+      installedVersion: newVersion,
+      cachedContentCode: contentCode,
+      lastUpdatedTime: Date.now()
+    });
+
+    return { success: true, version: newVersion };
+  } catch (err) {
+    console.error('[Remote Update Pull Error]:', err);
+    return { success: false, error: err.message || 'Failed to pull remote update.' };
   }
 }
 
@@ -75,19 +127,21 @@ async function checkForRemoteUpdates() {
           remoteDownloadUrl: data.downloadUrl || ''
         });
 
+        const notifId = 'update_notice_' + Date.now();
         sendNotification(
           `🚀 Extension Update Available (v${data.version})`,
-          `A new update was published remotely! Current: v${currentVersion} -> New: v${data.version}`
+          `Click this notification to pull and apply v${data.version} instantly without re-downloading!`,
+          notifId
         );
       }
     }
   } catch (err) {
-    // Silently proceed if offline or remote URL not reachable
+    // Silently proceed if offline
   }
 }
 
 /**
- * Helper to compare semantic version strings (e.g. "2.2.0" > "2.1.0")
+ * Helper to compare semantic version strings (e.g. "2.6.0" > "2.5.0")
  */
 function isVersionGreater(v1, v2) {
   const parts1 = v1.split('.').map(Number);
@@ -269,6 +323,14 @@ extApi.runtime.onMessage.addListener((request, sender, sendResponse) => {
       extApi.storage.local.get(['remoteUpdateAvailable', 'remoteVersion'], (res) => {
         sendResponse(res);
       });
+    });
+    return true;
+  } else if (request.action === 'PULL_REMOTE_UPDATE') {
+    pullAndApplyRemoteUpdate().then(result => {
+      sendResponse(result);
+      if (result.success) {
+        setTimeout(() => extApi.runtime.reload(), 1000);
+      }
     });
     return true;
   }

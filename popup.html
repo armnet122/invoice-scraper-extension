@@ -19,12 +19,17 @@
         </svg>
         <h1>Invoice Scraper</h1>
       </div>
-      <span id="statusBadge" class="badge searching">v2.2.0</span>
+      <span id="statusBadge" class="badge searching">v2.6.0</span>
     </div>
 
     <!-- Remote Update Banner -->
-    <div id="updateBanner" style="display: none; background: #FEF3C7; border: 1px solid #F59E0B; padding: 8px 10px; border-radius: 6px; font-size: 11px; color: #92400E; margin-bottom: 12px; font-weight: 600;">
-      🚀 New Remote Update Available (<span id="remoteVersionTag"></span>)!
+    <div id="updateBanner" style="display: none; background: #FEF3C7; border: 1px solid #F59E0B; padding: 10px 12px; border-radius: 8px; font-size: 12px; color: #92400E; margin-bottom: 12px; font-weight: 600;">
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+        <span>🚀 Update Available (<span id="remoteVersionTag"></span>)</span>
+        <button id="pullUpdateBtn" class="btn primary" style="padding: 4px 10px; font-size: 11px; height: auto;">
+          Pull Update
+        </button>
+      </div>
     </div>
 
     <!-- Section 1: Headless Background URL Scraper -->
@@ -62,7 +67,7 @@
       <div class="setting-item">
         <div class="setting-text">
           <span class="setting-title">Minimal Floating Input Field</span>
-          <span class="setting-desc">Persistent bottom-right URL input box on all tabs</span>
+          <span class="setting-desc">Persistent bottom-right URL input box on dvla.gov.gh & genesys</span>
         </div>
         <label class="switch">
           <input type="checkbox" id="showFloatingInputToggle" checked>
@@ -114,7 +119,7 @@
     </div>
 
     <div class="footer">
-      <span>💡 Paste any URL into floating input to scrape & auto-close tab!</span>
+      <span>💡 Click notification or banner to pull updates in 1 click!</span>
     </div>
   </div>
 
