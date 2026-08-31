@@ -18,12 +18,12 @@ let isAutoEnterEnabled = true;
 let isFloatingInputEnabled = true;
 
 /**
- * Checks if the current page URL matches the target domain (dvla.gov.gh).
+ * Checks if the current page URL matches target domains (dvla.gov.gh or genesys).
  * @returns {boolean}
  */
 function isTargetDomainPage() {
   const currentUrl = window.location.href.toLowerCase();
-  return currentUrl.includes('dvla.gov.gh');
+  return currentUrl.includes('dvla.gov.gh') || currentUrl.includes('genesys');
 }
 
 // Load user preferences from extension storage
@@ -240,7 +240,7 @@ function makeDraggableAndPersist(element) {
 
 /**
  * Initializes a minimal persistent floating input field with drag-to-reposition AND minimize-to-pill support.
- * ONLY displayed when the page URL contains "dvla.gov.gh".
+ * ONLY displayed when the page URL contains "dvla.gov.gh" or "genesys".
  */
 function initMinimalFloatingInput() {
   if (!isTargetDomainPage()) return;

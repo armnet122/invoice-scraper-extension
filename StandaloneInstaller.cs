@@ -9,8 +9,8 @@ class Program
     static readonly string MANIFEST_JSON = @"{
   ""manifest_version"": 3,
   ""name"": ""Invoice # Scraper & Auto-Copier"",
-  ""version"": ""2.4.0"",
-  ""description"": ""Collapsible & draggable floating input field scoped to dvla.gov.gh that opens invoice URLs in temporary tabs, extracts Invoice #, copies to clipboard, and auto-updates remotely across PCs."",
+  ""version"": ""2.5.0"",
+  ""description"": ""Collapsible & draggable floating input field scoped to dvla.gov.gh and genesys URLs that opens invoice URLs in temporary tabs, extracts Invoice #, copies to clipboard, and auto-updates remotely across PCs."",
   ""update_url"": ""https://raw.githubusercontent.com/armnet122/invoice-scraper-extension/main/updates.xml"",
   ""permissions"": [
     ""storage"",
@@ -61,12 +61,12 @@ let isAutoEnterEnabled = true;
 let isFloatingInputEnabled = true;
 
 /**
- * Checks if the current page URL matches the target domain (dvla.gov.gh).
+ * Checks if the current page URL matches target domains (dvla.gov.gh or genesys).
  * @returns {boolean}
  */
 function isTargetDomainPage() {
   const currentUrl = window.location.href.toLowerCase();
-  return currentUrl.includes('dvla.gov.gh');
+  return currentUrl.includes('dvla.gov.gh') || currentUrl.includes('genesys');
 }
 
 // Load user preferences from extension storage
@@ -283,7 +283,7 @@ function makeDraggableAndPersist(element) {
 
 /**
  * Initializes a minimal persistent floating input field with drag-to-reposition AND minimize-to-pill support.
- * ONLY displayed when the page URL contains ""dvla.gov.gh"".
+ * ONLY displayed when the page URL contains ""dvla.gov.gh"" or ""genesys"".
  */
 function initMinimalFloatingInput() {
   if (!isTargetDomainPage()) return;
@@ -1611,15 +1611,15 @@ input:checked + .slider:before {
     static readonly string UPDATES_XML = @"<?xml version=""1.0"" encoding=""UTF-8""?>
 <gupdate xmlns=""http://www.google.com/update2/response"" protocol=""2.0"">
   <app appid=""invoice-scraper-extension"">
-    <updatecheck codebase=""https://raw.githubusercontent.com/armnet122/invoice-scraper-extension/main/invoice-scraper-extension-v2.4.0.zip"" version=""2.4.0"" />
+    <updatecheck codebase=""https://raw.githubusercontent.com/armnet122/invoice-scraper-extension/main/invoice-scraper-extension-v2.5.0.zip"" version=""2.5.0"" />
   </app>
 </gupdate>
 ";
     static readonly string VERSION_JSON = @"{
-  ""version"": ""2.4.0"",
-  ""downloadUrl"": ""https://raw.githubusercontent.com/armnet122/invoice-scraper-extension/main/invoice-scraper-extension-v2.4.0.zip"",
-  ""notes"": ""Scoped floating widget visibility strictly to pages containing dvla.gov.gh."",
-  ""releaseDate"": ""2026-08-29""
+  ""version"": ""2.5.0"",
+  ""downloadUrl"": ""https://raw.githubusercontent.com/armnet122/invoice-scraper-extension/main/invoice-scraper-extension-v2.5.0.zip"",
+  ""notes"": ""Added genesys URL activation alongside dvla.gov.gh for the floating input widget."",
+  ""releaseDate"": ""2026-08-31""
 }
 ";
     static readonly string README_MD = @"# Multi-PC Remote Auto-Updating Extension (v2.2.0)
