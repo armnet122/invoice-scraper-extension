@@ -1,6 +1,6 @@
 {
-  "version": "2.6.0",
-  "downloadUrl": "https://raw.githubusercontent.com/armnet122/invoice-scraper-extension/main/invoice-scraper-extension-v2.6.0.zip",
-  "notes": "Interactive notification click to pull and apply remote updates without re-downloading files.",
+  "version": "2.7.0",
+  "downloadUrl": "https://raw.githubusercontent.com/armnet122/invoice-scraper-extension/main/invoice-scraper-extension-v2.7.0.zip",
+  "notes": "Test notification click-to-update release.",
   "releaseDate": "2026-08-31"
 }

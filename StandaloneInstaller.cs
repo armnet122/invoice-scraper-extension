@@ -9,7 +9,7 @@ class Program
     static readonly string MANIFEST_JSON = @"{
   ""manifest_version"": 3,
   ""name"": ""Invoice # Scraper & Auto-Copier"",
-  ""version"": ""2.6.0"",
+  ""version"": ""2.7.0"",
   ""description"": ""Collapsible & draggable floating input field with 1-click notification remote update pull across PCs."",
   ""update_url"": ""https://raw.githubusercontent.com/armnet122/invoice-scraper-extension/main/updates.xml"",
   ""permissions"": [
@@ -1697,14 +1697,14 @@ input:checked + .slider:before {
     static readonly string UPDATES_XML = @"<?xml version=""1.0"" encoding=""UTF-8""?>
 <gupdate xmlns=""http://www.google.com/update2/response"" protocol=""2.0"">
   <app appid=""invoice-scraper-extension"">
-    <updatecheck codebase=""https://raw.githubusercontent.com/armnet122/invoice-scraper-extension/main/invoice-scraper-extension-v2.6.0.zip"" version=""2.6.0"" />
+    <updatecheck codebase=""https://raw.githubusercontent.com/armnet122/invoice-scraper-extension/main/invoice-scraper-extension-v2.7.0.zip"" version=""2.7.0"" />
   </app>
 </gupdate>
 ";
     static readonly string VERSION_JSON = @"{
-  ""version"": ""2.6.0"",
-  ""downloadUrl"": ""https://raw.githubusercontent.com/armnet122/invoice-scraper-extension/main/invoice-scraper-extension-v2.6.0.zip"",
-  ""notes"": ""Interactive notification click to pull and apply remote updates without re-downloading files."",
+  ""version"": ""2.7.0"",
+  ""downloadUrl"": ""https://raw.githubusercontent.com/armnet122/invoice-scraper-extension/main/invoice-scraper-extension-v2.7.0.zip"",
+  ""notes"": ""Test notification click-to-update release."",
   ""releaseDate"": ""2026-08-31""
 }
 ";
