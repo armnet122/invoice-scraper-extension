@@ -1,4 +1,4 @@
-# Multi-PC & Multi-Platform Remote Auto-Updating Extension (v2.7.0)
+# Multi-PC & Multi-Platform Remote Auto-Updating Extension (v2.8.0)
 
 A modern, Manifest V3 browser extension configured for GitHub user **armnet122** that extracts **Invoice #** values, copies them to your clipboard, and automatically updates across all your PCs remotely (Windows & Linux Mint/Ubuntu).
 
