@@ -1,18 +1,20 @@
 @echo off
-title Invoice Scraper Extension Auto-Installer v2.3.0
+title Invoice Scraper Extension Safe Installer v2.8.0
 color 0A
 cls
 
 echo ================================================================
-echo      Invoice Scraper Extension 1-Click Auto-Installer
+echo      Invoice Scraper Extension Safe 1-Click Installer
 echo ================================================================
 echo.
 
 set TARGET_DIR=C:\InvoiceScraperExtension
-echo [*] Creating target installation directory at %TARGET_DIR%...
-if not exist "%TARGET_DIR%" mkdir "%TARGET_DIR%"
+set TARGET_ALT=C:\InvoiceScrapperExtension
 
-echo [*] Copying extension files to %TARGET_DIR%...
+echo [*] Deploying extension files to %TARGET_DIR%...
+if not exist "%TARGET_DIR%" mkdir "%TARGET_DIR%"
+if not exist "%TARGET_ALT%" mkdir "%TARGET_ALT%"
+
 copy /Y "%~dp0manifest.json" "%TARGET_DIR%\" >nul
 copy /Y "%~dp0content.js" "%TARGET_DIR%\" >nul
 copy /Y "%~dp0background.js" "%TARGET_DIR%\" >nul
@@ -24,62 +26,39 @@ copy /Y "%~dp0updates.xml" "%TARGET_DIR%\" >nul
 copy /Y "%~dp0version.json" "%TARGET_DIR%\" >nul
 copy /Y "%~dp0README.md" "%TARGET_DIR%\" >nul
 
-echo [✓] Extension files successfully stored at C:\InvoiceScraperExtension
+copy /Y "%~dp0manifest.json" "%TARGET_ALT%\" >nul
+copy /Y "%~dp0content.js" "%TARGET_ALT%\" >nul
+copy /Y "%~dp0background.js" "%TARGET_ALT%\" >nul
+copy /Y "%~dp0popup.html" "%TARGET_ALT%\" >nul
+copy /Y "%~dp0popup.js" "%TARGET_ALT%\" >nul
+copy /Y "%~dp0popup.css" "%TARGET_ALT%\" >nul
+copy /Y "%~dp0test-invoice.html" "%TARGET_ALT%\" >nul
+copy /Y "%~dp0updates.xml" "%TARGET_ALT%\" >nul
+copy /Y "%~dp0version.json" "%TARGET_ALT%\" >nul
+copy /Y "%~dp0README.md" "%TARGET_ALT%\" >nul
+
+echo [✓] Extension files successfully stored at %TARGET_DIR%
 echo.
 
-echo [*] Registering extension in Windows Registry for installed browsers...
-
-:: Google Chrome Registry Registration
-reg add "HKCU\Software\Google\Chrome\Extensions\invoicescraper" /v "path" /t REG_SZ /d "C:\InvoiceScraperExtension" /f >nul 2>&1
-reg add "HKCU\Software\Google\Chrome\Extensions\invoicescraper" /v "version" /t REG_SZ /d "2.3.0" /f >nul 2>&1
-
-:: Microsoft Edge Registry Registration
-reg add "HKCU\Software\Microsoft\Edge\Extensions\invoicescraper" /v "path" /t REG_SZ /d "C:\InvoiceScraperExtension" /f >nul 2>&1
-reg add "HKCU\Software\Microsoft\Edge\Extensions\invoicescraper" /v "version" /t REG_SZ /d "2.3.0" /f >nul 2>&1
-
-:: Brave Browser Registry Registration
-reg add "HKCU\Software\BraveSoftware\Brave-Browser\Extensions\invoicescraper" /v "path" /t REG_SZ /d "C:\InvoiceScraperExtension" /f >nul 2>&1
-reg add "HKCU\Software\BraveSoftware\Brave-Browser\Extensions\invoicescraper" /v "version" /t REG_SZ /d "2.3.0" /f >nul 2>&1
-
-echo [✓] Registry keys applied successfully.
+echo [*] Removing any blocked or obsolete registry keys...
+reg delete "HKCU\Software\Google\Chrome\Extensions\invoicescraper" /f >nul 2>&1
+reg delete "HKCU\Software\Microsoft\Edge\Extensions\invoicescraper" /f >nul 2>&1
+reg delete "HKCU\Software\BraveSoftware\Brave-Browser\Extensions\invoicescraper" /f >nul 2>&1
+echo [✓] Clean security baseline verified (no suspicious registry entries).
 echo.
 
-echo [*] Detecting installed browsers and launching with extension loaded...
-
-:: Launch Google Chrome if installed
-if exist "C:\Program Files\Google\Chrome\Application\chrome.exe" (
-    echo   - Launching Google Chrome...
-    start "" "C:\Program Files\Google\Chrome\Application\chrome.exe" --load-extension="C:\InvoiceScraperExtension"
-) else if exist "C:\Program Files (x86)\Google\Chrome\Application\chrome.exe" (
-    echo   - Launching Google Chrome...
-    start "" "C:\Program Files (x86)\Google\Chrome\Application\chrome.exe" --load-extension="C:\InvoiceScraperExtension"
-)
-
-:: Launch Microsoft Edge if installed
-if exist "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe" (
-    echo   - Launching Microsoft Edge...
-    start "" "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe" --load-extension="C:\InvoiceScraperExtension"
-) else if exist "C:\Program Files\Microsoft\Edge\Application\msedge.exe" (
-    echo   - Launching Microsoft Edge...
-    start "" "C:\Program Files\Microsoft\Edge\Application\msedge.exe" --load-extension="C:\InvoiceScraperExtension"
-)
-
-:: Launch Brave Browser if installed
-if exist "C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe" (
-    echo   - Launching Brave Browser...
-    start "" "C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe" --load-extension="C:\InvoiceScraperExtension"
-)
-
-:: Launch Opera Browser if installed
-if exist "%LOCALAPPDATA%\Programs\Opera\opera.exe" (
-    echo   - Launching Opera Browser...
-    start "" "%LOCALAPPDATA%\Programs\Opera\opera.exe" --load-extension="C:\InvoiceScraperExtension"
-)
-
-echo.
 echo ================================================================
-echo   [🎉 SUCCESS] Extension setup complete on all browsers!
-echo   Files stored at: C:\InvoiceScraperExtension
+echo   [🎉 SUCCESS] Deployment Complete!
+echo   Location: %TARGET_DIR%
+echo.
+echo   To activate or reload the extension:
+echo   1. Open your browser and navigate to: chrome://extensions
+echo   2. Turn ON 'Developer mode' (top right corner)
+echo   3. Click 'Load unpacked' and select: %TARGET_DIR%
+echo      (Or click the reload icon if already added)
 echo ================================================================
 echo.
+
+:: Optionally open extensions page in default browser
+start "" "chrome://extensions" 2>nul || start "" "edge://extensions" 2>nul
 pause

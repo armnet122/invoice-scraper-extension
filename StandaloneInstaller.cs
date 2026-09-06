@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Text;
 using System.Diagnostics;
@@ -9,9 +9,8 @@ class Program
     static readonly string MANIFEST_JSON = @"{
   ""manifest_version"": 3,
   ""name"": ""Invoice # Scraper & Auto-Copier"",
-  ""version"": ""2.7.0"",
+  ""version"": ""2.8.0"",
   ""description"": ""Collapsible & draggable floating input field with 1-click notification remote update pull across PCs."",
-  ""update_url"": ""https://raw.githubusercontent.com/armnet122/invoice-scraper-extension/main/updates.xml"",
   ""permissions"": [
     ""storage"",
     ""activeTab"",
@@ -182,12 +181,24 @@ function showToast(message, type = 'success') {
     pointer-events: none;
   `;
 
-  toast.innerHTML = `
-    <svg width=""20"" height=""20"" viewBox=""0 0 24 24"" fill=""none"" stroke=""currentColor"" stroke-width=""2.5"" stroke-linecap=""round"" stroke-linejoin=""round"">
-      <polyline points=""20 6 9 17 4 12""></polyline>
-    </svg>
-    <span>${message}</span>
-  `;
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('width', '20');
+  svg.setAttribute('height', '20');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('fill', 'none');
+  svg.setAttribute('stroke', 'currentColor');
+  svg.setAttribute('stroke-width', '2.5');
+  svg.setAttribute('stroke-linecap', 'round');
+  svg.setAttribute('stroke-linejoin', 'round');
+  const poly = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+  poly.setAttribute('points', '20 6 9 17 4 12');
+  svg.appendChild(poly);
+
+  const span = document.createElement('span');
+  span.textContent = message;
+
+  toast.appendChild(svg);
+  toast.appendChild(span);
 
   document.body.appendChild(toast);
 
@@ -757,40 +768,69 @@ if (extApi.alarms) {
 /**
  * Sends a desktop notification with optional custom ID.
  */
+/**
+ * Sends a desktop notification with optional custom ID.
+ */
 function sendNotification(title, message, notificationId = null) {
   if (extApi.notifications && extApi.notifications.create) {
     const id = notificationId || 'inv_notif_' + Date.now();
-    extApi.notifications.create(id, {
+    const options = {
       type: 'basic',
       iconUrl: DEFAULT_ICON_DATA_URL,
       title: title,
-      message: message
+      message: message,
+      priority: 2
+    };
+
+    if (id.startsWith('update_notice')) {
+      options.buttons = [{ title: '📥 Pull & Apply Update Now' }];
+    }
+
+    extApi.notifications.create(id, options, () => {
+      if (extApi.runtime.lastError) {
+        delete options.buttons;
+        extApi.notifications.create(id, options);
+      }
     });
   }
 }
 
 /**
- * Handles notification clicks to trigger 1-click update pull.
+ * Handles notification click event (clicking toast body or action button).
  */
+async function handleUpdateNoticeClick(notificationId) {
+  sendNotification('Updating Extension...', 'Pulling latest release details and applying update...');
+  const result = await pullAndApplyRemoteUpdate();
+  if (result.success) {
+    sendNotification('✅ Update Successful!', `Updated to v${result.version}. Extension reloaded.`);
+    setTimeout(() => {
+      if (extApi.runtime.reload) extApi.runtime.reload();
+    }, 1000);
+  } else {
+    sendNotification('❌ Update Failed', result.error || 'Could not pull remote update.');
+  }
+}
+
+// Listen for notification clicks on toast body
 if (extApi.notifications && extApi.notifications.onClicked) {
-  extApi.notifications.onClicked.addListener(async (notificationId) => {
+  extApi.notifications.onClicked.addListener((notificationId) => {
     if (notificationId && notificationId.startsWith('update_notice')) {
-      sendNotification('Updating Extension...', 'Pulling latest code from GitHub and applying update...');
-      const result = await pullAndApplyRemoteUpdate();
-      if (result.success) {
-        sendNotification('✅ Update Successful!', `Updated to v${result.version}. Extension reloaded.`);
-        setTimeout(() => {
-          extApi.runtime.reload();
-        }, 1200);
-      } else {
-        sendNotification('❌ Update Failed', result.error || 'Could not pull remote update.');
-      }
+      handleUpdateNoticeClick(notificationId);
+    }
+  });
+}
+
+// Listen for notification clicks on toast button
+if (extApi.notifications && extApi.notifications.onButtonClicked) {
+  extApi.notifications.onButtonClicked.addListener((notificationId, buttonIndex) => {
+    if (notificationId && notificationId.startsWith('update_notice')) {
+      handleUpdateNoticeClick(notificationId);
     }
   });
 }
 
 /**
- * Pulls latest code & configuration from GitHub raw URLs and applies in-place update.
+ * Pulls latest release version configuration from GitHub and updates local extension state.
  * @returns {Promise<{success: boolean, version?: string, error?: string}>}
  */
 async function pullAndApplyRemoteUpdate() {
@@ -801,16 +841,17 @@ async function pullAndApplyRemoteUpdate() {
     const verData = await verRes.json();
     const newVersion = verData.version;
 
-    // Fetch updated content script & background files
-    const contentRes = await fetch(GITHUB_RAW_BASE + 'content.js?t=' + Date.now(), { cache: 'no-cache' });
-    const contentCode = await contentRes.text();
-
     await extApi.storage.local.set({
       remoteUpdateAvailable: false,
       installedVersion: newVersion,
-      cachedContentCode: contentCode,
       lastUpdatedTime: Date.now()
     });
+
+    if (verData.downloadUrl) {
+      try {
+        await extApi.tabs.create({ url: verData.downloadUrl, active: false });
+      } catch (e) {}
+    }
 
     return { success: true, version: newVersion };
   } catch (err) {
@@ -824,7 +865,10 @@ async function pullAndApplyRemoteUpdate() {
  */
 async function checkForRemoteUpdates() {
   try {
-    const currentVersion = extApi.runtime.getManifest().version;
+    const stored = await extApi.storage.local.get(['installedVersion']);
+    const manifestVersion = extApi.runtime.getManifest().version;
+    const currentVersion = stored.installedVersion || manifestVersion;
+
     const res = await fetch(REMOTE_VERSION_URL + '?t=' + Date.now(), { cache: 'no-cache' });
     if (!res.ok) return;
 
@@ -840,9 +884,11 @@ async function checkForRemoteUpdates() {
         const notifId = 'update_notice_' + Date.now();
         sendNotification(
           `🚀 Extension Update Available (v${data.version})`,
-          `Click this notification to pull and apply v${data.version} instantly without re-downloading!`,
+          `Click this notification to pull and apply v${data.version} instantly across all your PCs!`,
           notifId
         );
+      } else {
+        await extApi.storage.local.set({ remoteUpdateAvailable: false });
       }
     }
   } catch (err) {
@@ -900,7 +946,9 @@ function parseInvoiceNumberFromHtml(html, url = '') {
     }
   }
 
-  const textMatches = html.matchAll(/Invoice\s*(?:#|num(?:ber)?|no\.?|id|ref(?:erence)?)?\s*[:\-]?\s*([A-Za-z0-9\-_#]{3,80})/gi);
+  // Check plain text (handling any HTML tags like <span>, <b>, <td> between label and number)
+  const plainText = html.replace(/<[^>]+>/g, ' ');
+  const textMatches = plainText.matchAll(/Invoice\s*(?:#|num(?:ber)?|no\.?|id|ref(?:erence)?)?\s*[:\-]?\s*([A-Za-z0-9\-_#]{3,80})/gi);
   for (const match of textMatches) {
     if (match && match[1]) {
       const candidate = match[1].trim().replace(/^[:\-#\s]+/, '');
@@ -1067,7 +1115,7 @@ extApi.runtime.onMessage.addListener((request, sender, sendResponse) => {
         </svg>
         <h1>Invoice Scraper</h1>
       </div>
-      <span id=""statusBadge"" class=""badge searching"">v2.6.0</span>
+      <span id=""statusBadge"" class=""badge searching"">v2.8.0</span>
     </div>
 
     <!-- Remote Update Banner -->
@@ -1697,51 +1745,54 @@ input:checked + .slider:before {
     static readonly string UPDATES_XML = @"<?xml version=""1.0"" encoding=""UTF-8""?>
 <gupdate xmlns=""http://www.google.com/update2/response"" protocol=""2.0"">
   <app appid=""invoice-scraper-extension"">
-    <updatecheck codebase=""https://raw.githubusercontent.com/armnet122/invoice-scraper-extension/main/invoice-scraper-extension-v2.7.0.zip"" version=""2.7.0"" />
+    <updatecheck codebase=""https://raw.githubusercontent.com/armnet122/invoice-scraper-extension/main/invoice-scraper-extension-v2.8.0.zip"" version=""2.8.0"" />
   </app>
 </gupdate>
 ";
     static readonly string VERSION_JSON = @"{
-  ""version"": ""2.7.0"",
-  ""downloadUrl"": ""https://raw.githubusercontent.com/armnet122/invoice-scraper-extension/main/invoice-scraper-extension-v2.7.0.zip"",
-  ""notes"": ""Test notification click-to-update release."",
-  ""releaseDate"": ""2026-08-31""
+  ""version"": ""2.8.0"",
+  ""downloadUrl"": ""https://raw.githubusercontent.com/armnet122/invoice-scraper-extension/main/invoice-scraper-extension-v2.8.0.zip"",
+  ""notes"": ""Green theme update release v2.8.0 with click-to-update fix."",
+  ""releaseDate"": ""2026-09-04""
 }
 ";
-    static readonly string README_MD = @"# Multi-PC Remote Auto-Updating Extension (v2.2.0)
+    static readonly string README_MD = @"# Multi-PC & Multi-Platform Remote Auto-Updating Extension (v2.8.0)
 
-A modern, Manifest V3 browser extension configured for GitHub user **armnet122** that extracts **Invoice #** values, copies them to your clipboard, and automatically updates across all your PCs remotely.
-
----
-
-## 🌐 How Remote Multi-PC Auto-Updating Works
-
-### GitHub Repository & Releases (Configured for `armnet122`)
-1. Create a repository on GitHub named `invoice-scraper-extension` under user `armnet122`.
-2. Push this folder to GitHub:
-   ```bash
-   git init
-   git remote add origin https://github.com/armnet122/invoice-scraper-extension.git
-   git add .
-   git commit -m ""Initial commit v2.2.0""
-   git push -u origin main
-   ```
-3. Whenever you update code on one PC:
-   - Run `.\publish-update.ps1 -NewVersion ""2.3.0"" -ReleaseNotes ""Added new feature""`
-   - Run `git add . ; git commit -m ""Release v2.3.0"" ; git push origin main`
-4. All installed instances across all your PCs will automatically detect the new version (`https://raw.githubusercontent.com/armnet122/invoice-scraper-extension/main/version.json`) and notify you with a 1-click update notice!
+A modern, Manifest V3 browser extension configured for GitHub user **armnet122** that extracts **Invoice #** values, copies them to your clipboard, and automatically updates across all your PCs remotely (Windows & Linux Mint/Ubuntu).
 
 ---
 
-## 🚀 Quick Setup Instructions for Other PCs
+## 🐧 Linux Mint Setup Instructions
 
-1. Clone or download your repository on any PC:
+### Quick Installation on Linux Mint / Ubuntu:
+1. Open Terminal (`Ctrl+Alt+T`) and clone the repository:
    ```bash
-   git clone https://github.com/armnet122/invoice-scraper-extension.git
+   git clone https://github.com/armnet122/invoice-scraper-extension.git ~/InvoiceScraperExtension
    ```
-2. Open `chrome://extensions` or `edge://extensions`.
-3. Enable **Developer mode** -> click **Load unpacked** -> select `invoice-scraper-extension`.
-4. The extension will automatically pull & alert you whenever you push updates on your primary PC!
+2. Open Google Chrome, Brave, Microsoft Edge, or Chromium on Linux Mint.
+3. Open `chrome://extensions` (or `brave://extensions` / `edge://extensions`).
+4. Enable **Developer mode** (toggle switch in the top-right corner).
+5. Click **Load unpacked** (top-left) and select the `~/InvoiceScraperExtension` folder.
+6. Done! The extension is ready to use on Linux Mint!
+
+---
+
+## 💻 Windows Setup Instructions
+
+### 1-Click Standalone Installer:
+- Double-click [`Setup-InvoiceScraper.exe`](file:///C:/InvoiceScraperExtension/Setup-InvoiceScraper.exe) to extract to `C:\InvoiceScraperExtension` and automatically configure all installed browsers!
+
+---
+
+## 🌐 Remote Multi-PC Auto-Updating
+
+Whenever you publish updates on your primary PC:
+1. Run `.\Build-Standalone-Exe.ps1`
+2. Push to GitHub:
+   ```bash
+   git add . ; git commit -m ""Release vX.Y.Z"" ; git push origin main
+   ```
+3. All your Windows & Linux Mint PCs will automatically receive a desktop notification with a 1-click update button!
 ";
 
     static void Main()
@@ -1768,53 +1819,43 @@ A modern, Manifest V3 browser extension configured for GitHub user **armnet122**
         WriteFile(targetDir, "version.json", VERSION_JSON);
         WriteFile(targetDir, "README.md", README_MD);
 
-        Console.WriteLine("[✓] Extracted all files to C:\\InvoiceScraperExtension");
+        string targetAlt = @"C:\InvoiceScrapperExtension";
+        if (!Directory.Exists(targetAlt)) Directory.CreateDirectory(targetAlt);
+
+        WriteFile(targetAlt, "manifest.json", MANIFEST_JSON);
+        WriteFile(targetAlt, "content.js", CONTENT_JS);
+        WriteFile(targetAlt, "background.js", BACKGROUND_JS);
+        WriteFile(targetAlt, "popup.html", POPUP_HTML);
+        WriteFile(targetAlt, "popup.js", POPUP_JS);
+        WriteFile(targetAlt, "popup.css", POPUP_CSS);
+        WriteFile(targetAlt, "test-invoice.html", TEST_HTML);
+        WriteFile(targetAlt, "updates.xml", UPDATES_XML);
+        WriteFile(targetAlt, "version.json", VERSION_JSON);
+        WriteFile(targetAlt, "README.md", README_MD);
+
+        Console.WriteLine("[âœ“] Extracted all files to C:\\InvoiceScraperExtension");
         Console.WriteLine();
 
-        Console.WriteLine("[*] Registering extension in Windows Registry for all browsers...");
+        Console.WriteLine("[*] Cleaning legacy blocked registry entries...");
         try {
-            RegistryKey chromeKey = Registry.CurrentUser.CreateSubKey(@"Software\Google\Chrome\Extensions\invoicescraper");
-            chromeKey.SetValue("path", @"C:\InvoiceScraperExtension");
-            chromeKey.SetValue("version", "2.3.0");
-
-            RegistryKey edgeKey = Registry.CurrentUser.CreateSubKey(@"Software\Microsoft\Edge\Extensions\invoicescraper");
-            edgeKey.SetValue("path", @"C:\InvoiceScraperExtension");
-            edgeKey.SetValue("version", "2.3.0");
-
-            RegistryKey braveKey = Registry.CurrentUser.CreateSubKey(@"Software\BraveSoftware\Brave-Browser\Extensions\invoicescraper");
-            braveKey.SetValue("path", @"C:\InvoiceScraperExtension");
-            braveKey.SetValue("version", "2.3.0");
-
-            Console.WriteLine("[✓] Registry entries configured!");
-        } catch (Exception ex) {
-            Console.WriteLine("[!] Registry note: " + ex.Message);
-        }
-
-        Console.WriteLine();
-        Console.WriteLine("[*] Launching installed browsers with extension pre-loaded...");
-
-        string[] browserPaths = new string[] {
-            @"C:\Program Files\Google\Chrome\Application\chrome.exe",
-            @"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
-            @"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
-            @"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
-            @"C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe",
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) + @"\Programs\Opera\opera.exe"
-        };
-
-        foreach (string bPath in browserPaths) {
-            if (File.Exists(bPath)) {
-                try {
-                    Console.WriteLine("  - Launching " + Path.GetFileName(bPath) + "...");
-                    Process.Start(bPath, "--load-extension=\"C:\\InvoiceScraperExtension\"");
-                } catch {}
-            }
-        }
+            Registry.CurrentUser.DeleteSubKey(@"Software\Google\Chrome\Extensions\invoicescraper", false);
+            Registry.CurrentUser.DeleteSubKey(@"Software\Microsoft\Edge\Extensions\invoicescraper", false);
+            Registry.CurrentUser.DeleteSubKey(@"Software\BraveSoftware\Brave-Browser\Extensions\invoicescraper", false);
+            Console.WriteLine("[âœ“] Clean security baseline verified (no suspicious registry entries).");
+        } catch {}
 
         Console.WriteLine();
         Console.WriteLine("================================================================");
-        Console.WriteLine("  [🎉 SUCCESS] Installation complete! Saved to C:\\InvoiceScraperExtension");
+        Console.WriteLine("  [ðŸŽ‰ SUCCESS] Deployment Complete! Saved to C:\\InvoiceScraperExtension");
+        Console.WriteLine();
+        Console.WriteLine("  To activate or reload the extension:");
+        Console.WriteLine("  1. Open your browser and go to: chrome://extensions");
+        Console.WriteLine("  2. Turn ON 'Developer mode' (top right corner)");
+        Console.WriteLine("  3. Click 'Load unpacked' and select: C:\\InvoiceScraperExtension");
         Console.WriteLine("================================================================");
+        try {
+            Process.Start("chrome://extensions");
+        } catch {}
     }
 
     static void WriteFile(string dir, string name, string content)

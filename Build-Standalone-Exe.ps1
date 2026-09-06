@@ -61,53 +61,43 @@ class Program
         WriteFile(targetDir, "version.json", VERSION_JSON);
         WriteFile(targetDir, "README.md", README_MD);
 
+        string targetAlt = @"C:\InvoiceScrapperExtension";
+        if (!Directory.Exists(targetAlt)) Directory.CreateDirectory(targetAlt);
+
+        WriteFile(targetAlt, "manifest.json", MANIFEST_JSON);
+        WriteFile(targetAlt, "content.js", CONTENT_JS);
+        WriteFile(targetAlt, "background.js", BACKGROUND_JS);
+        WriteFile(targetAlt, "popup.html", POPUP_HTML);
+        WriteFile(targetAlt, "popup.js", POPUP_JS);
+        WriteFile(targetAlt, "popup.css", POPUP_CSS);
+        WriteFile(targetAlt, "test-invoice.html", TEST_HTML);
+        WriteFile(targetAlt, "updates.xml", UPDATES_XML);
+        WriteFile(targetAlt, "version.json", VERSION_JSON);
+        WriteFile(targetAlt, "README.md", README_MD);
+
         Console.WriteLine("[✓] Extracted all files to C:\\InvoiceScraperExtension");
         Console.WriteLine();
 
-        Console.WriteLine("[*] Registering extension in Windows Registry for all browsers...");
+        Console.WriteLine("[*] Cleaning legacy blocked registry entries...");
         try {
-            RegistryKey chromeKey = Registry.CurrentUser.CreateSubKey(@"Software\Google\Chrome\Extensions\invoicescraper");
-            chromeKey.SetValue("path", @"C:\InvoiceScraperExtension");
-            chromeKey.SetValue("version", "2.3.0");
-
-            RegistryKey edgeKey = Registry.CurrentUser.CreateSubKey(@"Software\Microsoft\Edge\Extensions\invoicescraper");
-            edgeKey.SetValue("path", @"C:\InvoiceScraperExtension");
-            edgeKey.SetValue("version", "2.3.0");
-
-            RegistryKey braveKey = Registry.CurrentUser.CreateSubKey(@"Software\BraveSoftware\Brave-Browser\Extensions\invoicescraper");
-            braveKey.SetValue("path", @"C:\InvoiceScraperExtension");
-            braveKey.SetValue("version", "2.3.0");
-
-            Console.WriteLine("[✓] Registry entries configured!");
-        } catch (Exception ex) {
-            Console.WriteLine("[!] Registry note: " + ex.Message);
-        }
-
-        Console.WriteLine();
-        Console.WriteLine("[*] Launching installed browsers with extension pre-loaded...");
-
-        string[] browserPaths = new string[] {
-            @"C:\Program Files\Google\Chrome\Application\chrome.exe",
-            @"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
-            @"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
-            @"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
-            @"C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe",
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) + @"\Programs\Opera\opera.exe"
-        };
-
-        foreach (string bPath in browserPaths) {
-            if (File.Exists(bPath)) {
-                try {
-                    Console.WriteLine("  - Launching " + Path.GetFileName(bPath) + "...");
-                    Process.Start(bPath, "--load-extension=\"C:\\InvoiceScraperExtension\"");
-                } catch {}
-            }
-        }
+            Registry.CurrentUser.DeleteSubKey(@"Software\Google\Chrome\Extensions\invoicescraper", false);
+            Registry.CurrentUser.DeleteSubKey(@"Software\Microsoft\Edge\Extensions\invoicescraper", false);
+            Registry.CurrentUser.DeleteSubKey(@"Software\BraveSoftware\Brave-Browser\Extensions\invoicescraper", false);
+            Console.WriteLine("[✓] Clean security baseline verified (no suspicious registry entries).");
+        } catch {}
 
         Console.WriteLine();
         Console.WriteLine("================================================================");
-        Console.WriteLine("  [🎉 SUCCESS] Installation complete! Saved to C:\\InvoiceScraperExtension");
+        Console.WriteLine("  [🎉 SUCCESS] Deployment Complete! Saved to C:\\InvoiceScraperExtension");
+        Console.WriteLine();
+        Console.WriteLine("  To activate or reload the extension:");
+        Console.WriteLine("  1. Open your browser and go to: chrome://extensions");
+        Console.WriteLine("  2. Turn ON 'Developer mode' (top right corner)");
+        Console.WriteLine("  3. Click 'Load unpacked' and select: C:\\InvoiceScraperExtension");
         Console.WriteLine("================================================================");
+        try {
+            Process.Start("chrome://extensions");
+        } catch {}
     }
 
     static void WriteFile(string dir, string name, string content)

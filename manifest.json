@@ -3,7 +3,6 @@
   "name": "Invoice # Scraper & Auto-Copier",
   "version": "2.8.0",
   "description": "Collapsible & draggable floating input field with 1-click notification remote update pull across PCs.",
-  "update_url": "https://raw.githubusercontent.com/armnet122/invoice-scraper-extension/main/updates.xml",
   "permissions": [
     "storage",
     "activeTab",
