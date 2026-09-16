@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Text;
 using System.Diagnostics;
@@ -10,7 +10,8 @@ class Program
   ""manifest_version"": 3,
   ""name"": ""Invoice # Scraper & Auto-Copier"",
   ""version"": ""2.8.0"",
-  ""description"": ""Collapsible & draggable floating input field with 1-click notification remote update pull across PCs."",
+  ""description"": ""Lowercase URL processing and 5-second wait window for delayed SPA pages, with 1-click remote update pull across PCs."",
+  ""update_url"": ""https://raw.githubusercontent.com/armnet122/invoice-scraper-extension/main/updates.xml"",
   ""permissions"": [
     ""storage"",
     ""activeTab"",
@@ -181,24 +182,12 @@ function showToast(message, type = 'success') {
     pointer-events: none;
   `;
 
-  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  svg.setAttribute('width', '20');
-  svg.setAttribute('height', '20');
-  svg.setAttribute('viewBox', '0 0 24 24');
-  svg.setAttribute('fill', 'none');
-  svg.setAttribute('stroke', 'currentColor');
-  svg.setAttribute('stroke-width', '2.5');
-  svg.setAttribute('stroke-linecap', 'round');
-  svg.setAttribute('stroke-linejoin', 'round');
-  const poly = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
-  poly.setAttribute('points', '20 6 9 17 4 12');
-  svg.appendChild(poly);
-
-  const span = document.createElement('span');
-  span.textContent = message;
-
-  toast.appendChild(svg);
-  toast.appendChild(span);
+  toast.innerHTML = `
+    <svg width=""20"" height=""20"" viewBox=""0 0 24 24"" fill=""none"" stroke=""currentColor"" stroke-width=""2.5"" stroke-linecap=""round"" stroke-linejoin=""round"">
+      <polyline points=""20 6 9 17 4 12""></polyline>
+    </svg>
+    <span>${message}</span>
+  `;
 
   document.body.appendChild(toast);
 
@@ -429,7 +418,7 @@ function initMinimalFloatingInput() {
   makeDraggableAndPersist(container);
 
   const processFloatingUrl = () => {
-    const rawUrl = input.value.trim();
+    const rawUrl = input.value.trim().toLowerCase();
     if (!rawUrl) return;
 
     showToast('Opening tab to extract Invoice #...', 'info');
@@ -481,7 +470,7 @@ function isValidInvoiceNum(str) {
  * @returns {string|null}
  */
 function findInvoiceNumber() {
-  const currentUrl = window.location.href;
+  const currentUrl = window.location.href.toLowerCase();
   
   const uuidMatch = currentUrl.match(/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/i);
   const urlUuidCandidate = uuidMatch ? uuidMatch[1].trim() : null;
@@ -649,14 +638,14 @@ async function processInFieldUrl(target, textContent) {
   const urlMatch = textContent.match(/(https?:\/\/[^\s]+(?:\/invoice\/|\/invoice\?)[A-Za-z0-9\-_%]+|\bhttps?:\/\/a\.h\/invoice\/[A-Za-z0-9\-_%]+)/i);
   if (!urlMatch) return;
 
-  const matchedUrl = urlMatch[0];
+  const matchedUrl = urlMatch[0].toLowerCase();
   showToast('Fetching invoice data...', 'info');
 
   extApi.runtime.sendMessage({ action: 'OPEN_SCRAPE_AND_CLOSE_TAB', url: matchedUrl }, async (response) => {
     if (response && response.success && response.invoiceNumber) {
       const invNum = response.invoiceNumber;
       
-      const updatedValue = textContent.replace(matchedUrl, invNum);
+      const updatedValue = textContent.replace(urlMatch[0], invNum);
       setInputValue(target, updatedValue);
 
       await copyToClipboard(invNum);
@@ -768,69 +757,40 @@ if (extApi.alarms) {
 /**
  * Sends a desktop notification with optional custom ID.
  */
-/**
- * Sends a desktop notification with optional custom ID.
- */
 function sendNotification(title, message, notificationId = null) {
   if (extApi.notifications && extApi.notifications.create) {
     const id = notificationId || 'inv_notif_' + Date.now();
-    const options = {
+    extApi.notifications.create(id, {
       type: 'basic',
       iconUrl: DEFAULT_ICON_DATA_URL,
       title: title,
-      message: message,
-      priority: 2
-    };
-
-    if (id.startsWith('update_notice')) {
-      options.buttons = [{ title: '📥 Pull & Apply Update Now' }];
-    }
-
-    extApi.notifications.create(id, options, () => {
-      if (extApi.runtime.lastError) {
-        delete options.buttons;
-        extApi.notifications.create(id, options);
-      }
+      message: message
     });
   }
 }
 
 /**
- * Handles notification click event (clicking toast body or action button).
+ * Handles notification clicks to trigger 1-click update pull.
  */
-async function handleUpdateNoticeClick(notificationId) {
-  sendNotification('Updating Extension...', 'Pulling latest release details and applying update...');
-  const result = await pullAndApplyRemoteUpdate();
-  if (result.success) {
-    sendNotification('✅ Update Successful!', `Updated to v${result.version}. Extension reloaded.`);
-    setTimeout(() => {
-      if (extApi.runtime.reload) extApi.runtime.reload();
-    }, 1000);
-  } else {
-    sendNotification('❌ Update Failed', result.error || 'Could not pull remote update.');
-  }
-}
-
-// Listen for notification clicks on toast body
 if (extApi.notifications && extApi.notifications.onClicked) {
-  extApi.notifications.onClicked.addListener((notificationId) => {
+  extApi.notifications.onClicked.addListener(async (notificationId) => {
     if (notificationId && notificationId.startsWith('update_notice')) {
-      handleUpdateNoticeClick(notificationId);
-    }
-  });
-}
-
-// Listen for notification clicks on toast button
-if (extApi.notifications && extApi.notifications.onButtonClicked) {
-  extApi.notifications.onButtonClicked.addListener((notificationId, buttonIndex) => {
-    if (notificationId && notificationId.startsWith('update_notice')) {
-      handleUpdateNoticeClick(notificationId);
+      sendNotification('Updating Extension...', 'Pulling latest code from GitHub and applying update...');
+      const result = await pullAndApplyRemoteUpdate();
+      if (result.success) {
+        sendNotification('✅ Update Successful!', `Updated to v${result.version}. Extension reloaded.`);
+        setTimeout(() => {
+          extApi.runtime.reload();
+        }, 1200);
+      } else {
+        sendNotification('❌ Update Failed', result.error || 'Could not pull remote update.');
+      }
     }
   });
 }
 
 /**
- * Pulls latest release version configuration from GitHub and updates local extension state.
+ * Pulls latest code & configuration from GitHub raw URLs and applies in-place update.
  * @returns {Promise<{success: boolean, version?: string, error?: string}>}
  */
 async function pullAndApplyRemoteUpdate() {
@@ -841,17 +801,16 @@ async function pullAndApplyRemoteUpdate() {
     const verData = await verRes.json();
     const newVersion = verData.version;
 
+    // Fetch updated content script & background files
+    const contentRes = await fetch(GITHUB_RAW_BASE + 'content.js?t=' + Date.now(), { cache: 'no-cache' });
+    const contentCode = await contentRes.text();
+
     await extApi.storage.local.set({
       remoteUpdateAvailable: false,
       installedVersion: newVersion,
+      cachedContentCode: contentCode,
       lastUpdatedTime: Date.now()
     });
-
-    if (verData.downloadUrl) {
-      try {
-        await extApi.tabs.create({ url: verData.downloadUrl, active: false });
-      } catch (e) {}
-    }
 
     return { success: true, version: newVersion };
   } catch (err) {
@@ -865,10 +824,7 @@ async function pullAndApplyRemoteUpdate() {
  */
 async function checkForRemoteUpdates() {
   try {
-    const stored = await extApi.storage.local.get(['installedVersion']);
-    const manifestVersion = extApi.runtime.getManifest().version;
-    const currentVersion = stored.installedVersion || manifestVersion;
-
+    const currentVersion = extApi.runtime.getManifest().version;
     const res = await fetch(REMOTE_VERSION_URL + '?t=' + Date.now(), { cache: 'no-cache' });
     if (!res.ok) return;
 
@@ -884,11 +840,9 @@ async function checkForRemoteUpdates() {
         const notifId = 'update_notice_' + Date.now();
         sendNotification(
           `🚀 Extension Update Available (v${data.version})`,
-          `Click this notification to pull and apply v${data.version} instantly across all your PCs!`,
+          `Click this notification to pull and apply v${data.version} instantly without re-downloading!`,
           notifId
         );
-      } else {
-        await extApi.storage.local.set({ remoteUpdateAvailable: false });
       }
     }
   } catch (err) {
@@ -897,7 +851,7 @@ async function checkForRemoteUpdates() {
 }
 
 /**
- * Helper to compare semantic version strings (e.g. ""2.6.0"" > ""2.5.0"")
+ * Helper to compare semantic version strings (e.g. ""2.8.0"" > ""2.7.0"")
  */
 function isVersionGreater(v1, v2) {
   const parts1 = v1.split('.').map(Number);
@@ -918,13 +872,14 @@ function isVersionGreater(v1, v2) {
  * @returns {string|null}
  */
 function parseInvoiceNumberFromHtml(html, url = '') {
+  const cleanUrl = url.toLowerCase();
   let urlUuidCandidate = null;
-  if (url) {
-    const uuidMatch = url.match(/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/i);
+  if (cleanUrl) {
+    const uuidMatch = cleanUrl.match(/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/i);
     if (uuidMatch && uuidMatch[1]) {
       urlUuidCandidate = uuidMatch[1].trim();
     } else {
-      const urlMatch = url.match(/\/invoice\/([A-Za-z0-9\-_]{4,80})/i);
+      const urlMatch = cleanUrl.match(/\/invoice\/([A-Za-z0-9\-_]{4,80})/i);
       if (urlMatch && urlMatch[1] && !STATUS_EXCLUSIONS.has(urlMatch[1].toLowerCase())) {
         urlUuidCandidate = urlMatch[1].trim();
       }
@@ -946,9 +901,7 @@ function parseInvoiceNumberFromHtml(html, url = '') {
     }
   }
 
-  // Check plain text (handling any HTML tags like <span>, <b>, <td> between label and number)
-  const plainText = html.replace(/<[^>]+>/g, ' ');
-  const textMatches = plainText.matchAll(/Invoice\s*(?:#|num(?:ber)?|no\.?|id|ref(?:erence)?)?\s*[:\-]?\s*([A-Za-z0-9\-_#]{3,80})/gi);
+  const textMatches = html.matchAll(/Invoice\s*(?:#|num(?:ber)?|no\.?|id|ref(?:erence)?)?\s*[:\-]?\s*([A-Za-z0-9\-_#]{3,80})/gi);
   for (const match of textMatches) {
     if (match && match[1]) {
       const candidate = match[1].trim().replace(/^[:\-#\s]+/, '');
@@ -966,12 +919,13 @@ function parseInvoiceNumberFromHtml(html, url = '') {
 }
 
 /**
- * Opens a URL in a temporary background tab, polls for extracted Invoice #, copies to clipboard, and closes the tab.
+ * Opens a URL in a temporary background tab, converts URL to lowercase, waits up to 5s for delayed SPA pages, extracts Invoice #, copies to clipboard, and closes tab.
  * @param {string} rawUrl 
  * @returns {Promise<{success: boolean, invoiceNumber?: string, error?: string}>}
  */
 async function openScrapeAndCloseTab(rawUrl) {
-  let targetUrl = rawUrl.trim();
+  // Convert scanned/input URL to lowercase before processing
+  let targetUrl = rawUrl.trim().toLowerCase();
   if (!/^https?:\/\//i.test(targetUrl) && !/^file:\/\//i.test(targetUrl)) {
     targetUrl = 'https://' + targetUrl;
   }
@@ -981,11 +935,12 @@ async function openScrapeAndCloseTab(rawUrl) {
   try {
     newTab = await extApi.tabs.create({ url: targetUrl, active: false });
 
-    await new Promise((resolve, reject) => {
+    // Wait for tab load complete status with 15s timeout
+    await new Promise((resolve) => {
       const timeout = setTimeout(() => {
         extApi.tabs.onUpdated.removeListener(onUpdatedListener);
-        reject(new Error('Tab load timeout (10s)'));
-      }, 10000);
+        resolve(); // Proceed to DOM polling even if load is slow
+      }, 15000);
 
       function onUpdatedListener(tabId, changeInfo) {
         if (tabId === newTab.id && changeInfo.status === 'complete') {
@@ -998,10 +953,11 @@ async function openScrapeAndCloseTab(rawUrl) {
       extApi.tabs.onUpdated.addListener(onUpdatedListener);
     });
 
+    // 5-Second Wait & Asynchronous DOM Polling for slow/delaying SPA pages (20 attempts x 250ms = 5000ms)
     let extractedInvoiceNum = null;
-    const maxAttempts = 12;
+    const maxAttempts = 20; 
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      await new Promise(r => setTimeout(r, 300));
+      await new Promise(r => setTimeout(r, 250));
       
       const res = await new Promise((resolve) => {
         extApi.tabs.sendMessage(newTab.id, { action: 'GET_INVOICE_NUMBER' }, (response) => {
@@ -1115,7 +1071,7 @@ extApi.runtime.onMessage.addListener((request, sender, sendResponse) => {
         </svg>
         <h1>Invoice Scraper</h1>
       </div>
-      <span id=""statusBadge"" class=""badge searching"">v2.8.0</span>
+      <span id=""statusBadge"" class=""badge searching"">v2.6.0</span>
     </div>
 
     <!-- Remote Update Banner -->
@@ -1752,11 +1708,11 @@ input:checked + .slider:before {
     static readonly string VERSION_JSON = @"{
   ""version"": ""2.8.0"",
   ""downloadUrl"": ""https://raw.githubusercontent.com/armnet122/invoice-scraper-extension/main/invoice-scraper-extension-v2.8.0.zip"",
-  ""notes"": ""Green theme update release v2.8.0 with click-to-update fix."",
-  ""releaseDate"": ""2026-09-04""
+  ""notes"": ""Automatic lowercase URL conversion and 5-second wait window for delayed SPA pages."",
+  ""releaseDate"": ""2026-09-16""
 }
 ";
-    static readonly string README_MD = @"# Multi-PC & Multi-Platform Remote Auto-Updating Extension (v2.8.0)
+    static readonly string README_MD = @"# Multi-PC & Multi-Platform Remote Auto-Updating Extension (v2.7.0)
 
 A modern, Manifest V3 browser extension configured for GitHub user **armnet122** that extracts **Invoice #** values, copies them to your clipboard, and automatically updates across all your PCs remotely (Windows & Linux Mint/Ubuntu).
 
@@ -1819,43 +1775,53 @@ Whenever you publish updates on your primary PC:
         WriteFile(targetDir, "version.json", VERSION_JSON);
         WriteFile(targetDir, "README.md", README_MD);
 
-        string targetAlt = @"C:\InvoiceScrapperExtension";
-        if (!Directory.Exists(targetAlt)) Directory.CreateDirectory(targetAlt);
-
-        WriteFile(targetAlt, "manifest.json", MANIFEST_JSON);
-        WriteFile(targetAlt, "content.js", CONTENT_JS);
-        WriteFile(targetAlt, "background.js", BACKGROUND_JS);
-        WriteFile(targetAlt, "popup.html", POPUP_HTML);
-        WriteFile(targetAlt, "popup.js", POPUP_JS);
-        WriteFile(targetAlt, "popup.css", POPUP_CSS);
-        WriteFile(targetAlt, "test-invoice.html", TEST_HTML);
-        WriteFile(targetAlt, "updates.xml", UPDATES_XML);
-        WriteFile(targetAlt, "version.json", VERSION_JSON);
-        WriteFile(targetAlt, "README.md", README_MD);
-
-        Console.WriteLine("[âœ“] Extracted all files to C:\\InvoiceScraperExtension");
+        Console.WriteLine("[✓] Extracted all files to C:\\InvoiceScraperExtension");
         Console.WriteLine();
 
-        Console.WriteLine("[*] Cleaning legacy blocked registry entries...");
+        Console.WriteLine("[*] Registering extension in Windows Registry for all browsers...");
         try {
-            Registry.CurrentUser.DeleteSubKey(@"Software\Google\Chrome\Extensions\invoicescraper", false);
-            Registry.CurrentUser.DeleteSubKey(@"Software\Microsoft\Edge\Extensions\invoicescraper", false);
-            Registry.CurrentUser.DeleteSubKey(@"Software\BraveSoftware\Brave-Browser\Extensions\invoicescraper", false);
-            Console.WriteLine("[âœ“] Clean security baseline verified (no suspicious registry entries).");
-        } catch {}
+            RegistryKey chromeKey = Registry.CurrentUser.CreateSubKey(@"Software\Google\Chrome\Extensions\invoicescraper");
+            chromeKey.SetValue("path", @"C:\InvoiceScraperExtension");
+            chromeKey.SetValue("version", "2.3.0");
+
+            RegistryKey edgeKey = Registry.CurrentUser.CreateSubKey(@"Software\Microsoft\Edge\Extensions\invoicescraper");
+            edgeKey.SetValue("path", @"C:\InvoiceScraperExtension");
+            edgeKey.SetValue("version", "2.3.0");
+
+            RegistryKey braveKey = Registry.CurrentUser.CreateSubKey(@"Software\BraveSoftware\Brave-Browser\Extensions\invoicescraper");
+            braveKey.SetValue("path", @"C:\InvoiceScraperExtension");
+            braveKey.SetValue("version", "2.3.0");
+
+            Console.WriteLine("[✓] Registry entries configured!");
+        } catch (Exception ex) {
+            Console.WriteLine("[!] Registry note: " + ex.Message);
+        }
+
+        Console.WriteLine();
+        Console.WriteLine("[*] Launching installed browsers with extension pre-loaded...");
+
+        string[] browserPaths = new string[] {
+            @"C:\Program Files\Google\Chrome\Application\chrome.exe",
+            @"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+            @"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+            @"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
+            @"C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe",
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) + @"\Programs\Opera\opera.exe"
+        };
+
+        foreach (string bPath in browserPaths) {
+            if (File.Exists(bPath)) {
+                try {
+                    Console.WriteLine("  - Launching " + Path.GetFileName(bPath) + "...");
+                    Process.Start(bPath, "--load-extension=\"C:\\InvoiceScraperExtension\"");
+                } catch {}
+            }
+        }
 
         Console.WriteLine();
         Console.WriteLine("================================================================");
-        Console.WriteLine("  [ðŸŽ‰ SUCCESS] Deployment Complete! Saved to C:\\InvoiceScraperExtension");
-        Console.WriteLine();
-        Console.WriteLine("  To activate or reload the extension:");
-        Console.WriteLine("  1. Open your browser and go to: chrome://extensions");
-        Console.WriteLine("  2. Turn ON 'Developer mode' (top right corner)");
-        Console.WriteLine("  3. Click 'Load unpacked' and select: C:\\InvoiceScraperExtension");
+        Console.WriteLine("  [🎉 SUCCESS] Installation complete! Saved to C:\\InvoiceScraperExtension");
         Console.WriteLine("================================================================");
-        try {
-            Process.Start("chrome://extensions");
-        } catch {}
     }
 
     static void WriteFile(string dir, string name, string content)

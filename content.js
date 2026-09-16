@@ -139,24 +139,12 @@ function showToast(message, type = 'success') {
     pointer-events: none;
   `;
 
-  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  svg.setAttribute('width', '20');
-  svg.setAttribute('height', '20');
-  svg.setAttribute('viewBox', '0 0 24 24');
-  svg.setAttribute('fill', 'none');
-  svg.setAttribute('stroke', 'currentColor');
-  svg.setAttribute('stroke-width', '2.5');
-  svg.setAttribute('stroke-linecap', 'round');
-  svg.setAttribute('stroke-linejoin', 'round');
-  const poly = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
-  poly.setAttribute('points', '20 6 9 17 4 12');
-  svg.appendChild(poly);
-
-  const span = document.createElement('span');
-  span.textContent = message;
-
-  toast.appendChild(svg);
-  toast.appendChild(span);
+  toast.innerHTML = `
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="20 6 9 17 4 12"></polyline>
+    </svg>
+    <span>${message}</span>
+  `;
 
   document.body.appendChild(toast);
 
@@ -387,7 +375,7 @@ function initMinimalFloatingInput() {
   makeDraggableAndPersist(container);
 
   const processFloatingUrl = () => {
-    const rawUrl = input.value.trim();
+    const rawUrl = input.value.trim().toLowerCase();
     if (!rawUrl) return;
 
     showToast('Opening tab to extract Invoice #...', 'info');
@@ -439,7 +427,7 @@ function isValidInvoiceNum(str) {
  * @returns {string|null}
  */
 function findInvoiceNumber() {
-  const currentUrl = window.location.href;
+  const currentUrl = window.location.href.toLowerCase();
   
   const uuidMatch = currentUrl.match(/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/i);
   const urlUuidCandidate = uuidMatch ? uuidMatch[1].trim() : null;
@@ -607,14 +595,14 @@ async function processInFieldUrl(target, textContent) {
   const urlMatch = textContent.match(/(https?:\/\/[^\s]+(?:\/invoice\/|\/invoice\?)[A-Za-z0-9\-_%]+|\bhttps?:\/\/a\.h\/invoice\/[A-Za-z0-9\-_%]+)/i);
   if (!urlMatch) return;
 
-  const matchedUrl = urlMatch[0];
+  const matchedUrl = urlMatch[0].toLowerCase();
   showToast('Fetching invoice data...', 'info');
 
   extApi.runtime.sendMessage({ action: 'OPEN_SCRAPE_AND_CLOSE_TAB', url: matchedUrl }, async (response) => {
     if (response && response.success && response.invoiceNumber) {
       const invNum = response.invoiceNumber;
       
-      const updatedValue = textContent.replace(matchedUrl, invNum);
+      const updatedValue = textContent.replace(urlMatch[0], invNum);
       setInputValue(target, updatedValue);
 
       await copyToClipboard(invNum);
