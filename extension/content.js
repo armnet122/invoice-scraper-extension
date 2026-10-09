@@ -22,8 +22,7 @@ let isFloatingInputEnabled = true;
  * @returns {boolean}
  */
 function isTargetDomainPage() {
-  const h = window.location.hostname.toLowerCase();
-  return /(^|\.)(dvla\.gov\.gh|genesys\.com|genesyscloud\.com)$/.test(h);
+  return true; // injected only on configured domains (see background.js)
 }
 
 // Load user preferences from extension storage
@@ -36,6 +35,15 @@ extApi.storage.local.get(['showToast', 'inFieldTransform', 'autoEnter', 'showFlo
   if (isFloatingInputEnabled && isTargetDomainPage()) {
     initMinimalFloatingInput();
   }
+});
+
+// Policy (tray app) values override local preferences
+extApi.storage.managed.get(null, (m) => {
+  if (extApi.runtime.lastError || !m) return;
+  if (m.showToast !== undefined) isToastEnabled = m.showToast;
+  if (m.inFieldTransform !== undefined) isInFieldTransformEnabled = m.inFieldTransform;
+  if (m.autoEnter !== undefined) isAutoEnterEnabled = m.autoEnter;
+  if (m.showFloatingInput === false) document.getElementById('inv-floating-container')?.remove();
 });
 
 // Listen for settings changes from popup

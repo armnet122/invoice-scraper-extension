@@ -19,6 +19,25 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (res.showFloatingInput !== undefined) showFloatingInputToggle.checked = res.showFloatingInput;
   });
 
+  // Domains from the tray app that still need browser permission
+  const pendingBox = document.getElementById('pendingBox');
+  extApi.storage.local.get('pendingDomains', ({ pendingDomains = [] }) => {
+    for (const d of pendingDomains) {
+      const btn = document.createElement('button');
+      btn.className = 'btn primary';
+      btn.textContent = `Allow ${d}`;
+      btn.style.cssText = 'display:block;margin-top:6px;width:100%';
+      btn.addEventListener('click', () => {
+        extApi.permissions.request({ origins: [`*://${d}/*`, `*://*.${d}/*`] }, (ok) => { if (ok) btn.remove(); });
+      });
+      pendingBox.appendChild(btn);
+    }
+    if (pendingDomains.length) {
+      pendingBox.prepend('New target domains need your permission:');
+      pendingBox.style.display = 'block';
+    }
+  });
+
   // Handle setting toggles
   showToastToggle.addEventListener('change', () => {
     extApi.storage.local.set({ showToast: showToastToggle.checked });

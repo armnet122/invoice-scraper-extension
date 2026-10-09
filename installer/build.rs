@@ -1,6 +1,6 @@
 fn main() {
     // Windows target: ask for admin (UAC) because browser policies live in HKLM.
-    if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("windows") {
+    if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("windows") && std::env::var("PROFILE").as_deref() == Ok("release") {
         embed_manifest::embed_manifest(
             embed_manifest::new_manifest("InvoiceScraper.Setup")
                 .requested_execution_level(embed_manifest::manifest::ExecutionLevel::RequireAdministrator),

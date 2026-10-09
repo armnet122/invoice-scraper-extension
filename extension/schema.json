@@ -1,0 +1,23 @@
+{
+  "type": "object",
+  "properties": {
+    "domains": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "showToast": {
+      "type": "boolean"
+    },
+    "autoEnter": {
+      "type": "boolean"
+    },
+    "showFloatingInput": {
+      "type": "boolean"
+    },
+    "inFieldTransform": {
+      "type": "boolean"
+    }
+  }
+}

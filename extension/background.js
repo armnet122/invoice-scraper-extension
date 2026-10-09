@@ -209,3 +209,43 @@ extApi.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
 });
+
+// ---- Target domains (set by the tray app via managed policy) ----
+const DEFAULT_DOMAINS = ['dvla.gov.gh', 'genesys.com', 'genesyscloud.com'];
+const DOMAIN_RE = /^(?!-)[a-z0-9-]+(\.[a-z0-9-]+)+$/;
+const domainPatterns = (d) => [`*://${d}/*`, `*://*.${d}/*`];
+
+async function getDomains() {
+  try {
+    const m = await extApi.storage.managed.get('domains');
+    if (Array.isArray(m.domains)) {
+      return m.domains.map(d => String(d).toLowerCase().trim()).filter(d => DOMAIN_RE.test(d));
+    }
+  } catch (e) {}
+  return DEFAULT_DOMAINS;
+}
+
+/** Injects content.js only on domains we hold permission for; the rest are listed for the popup to request. */
+async function syncContentScripts() {
+  const granted = [];
+  const pending = [];
+  for (const d of await getDomains()) {
+    (await extApi.permissions.contains({ origins: domainPatterns(d) }) ? granted : pending).push(d);
+  }
+  try { await extApi.scripting.unregisterContentScripts({ ids: ['inv-main'] }); } catch (e) {}
+  if (granted.length) {
+    await extApi.scripting.registerContentScripts([{
+      id: 'inv-main',
+      matches: granted.flatMap(domainPatterns),
+      js: ['content.js'],
+      runAt: 'document_idle',
+      persistAcrossSessions: true
+    }]);
+  }
+  await extApi.storage.local.set({ pendingDomains: pending });
+}
+
+extApi.runtime.onInstalled.addListener(syncContentScripts);
+extApi.runtime.onStartup.addListener(syncContentScripts);
+extApi.permissions.onAdded.addListener(syncContentScripts);
+extApi.storage.onChanged.addListener((_, area) => { if (area === 'managed') syncContentScripts(); });

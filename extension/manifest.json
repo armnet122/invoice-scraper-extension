@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Invoice # Scraper & Auto-Copier",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "description": "Floating invoice input, invoice-number scraping and auto-copy for DVLA and Genesys pages.",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAuA6BL3QXrRCF2p5vDDneFx1yhMp4+y1nOoQpE1itvCSQCV1LXU+jzsgMiJ9I7htl2UExhEkp2unSGlU2XwKsxIgnFsHO+OSa3ZXRnFL+JtUNhTfhg9zoKjEzoCApY36MW6IniF1pCV5R42jBAZ6PKiUzcTN3eodGZDsVZaXJXM/ZHtHY9KzaeNbndvhyjAwpOr2XeR9JNxl4OohDvwGDLKd7C7kBv6FVRO1oENMJGeKVPenvXeO7NDO4whbwJeAiXTzbuz9Rfejn0PoN9+lN3PYadpxefxW4h3nnnL93NVi/B1nnsnitNmyc8id7Q20nj6gfx2V4N8JUKMuzhpgyEwIDAQAB",
   "update_url": "https://raw.githubusercontent.com/armnet122/invoice-scraper-extension/main/updates.xml",
@@ -9,7 +9,8 @@
     "storage",
     "clipboardWrite",
     "contextMenus",
-    "notifications"
+    "notifications",
+    "scripting"
   ],
   "host_permissions": [
     "*://dvla.gov.gh/*",
@@ -23,18 +24,10 @@
   "action": {
     "default_popup": "popup.html"
   },
-  "content_scripts": [
-    {
-      "matches": [
-        "*://dvla.gov.gh/*",
-        "*://*.dvla.gov.gh/*",
-        "*://*.genesys.com/*",
-        "*://*.genesyscloud.com/*"
-      ],
-      "js": [
-        "content.js"
-      ],
-      "run_at": "document_idle"
-    }
-  ]
+  "optional_host_permissions": [
+    "*://*/*"
+  ],
+  "storage": {
+    "managed_schema": "schema.json"
+  }
 }
