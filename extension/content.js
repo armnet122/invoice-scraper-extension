@@ -22,8 +22,8 @@ let isFloatingInputEnabled = true;
  * @returns {boolean}
  */
 function isTargetDomainPage() {
-  const currentUrl = window.location.href.toLowerCase();
-  return currentUrl.includes('dvla.gov.gh') || currentUrl.includes('genesys');
+  const h = window.location.hostname.toLowerCase();
+  return /(^|\.)(dvla\.gov\.gh|genesys\.com|genesyscloud\.com)$/.test(h);
 }
 
 // Load user preferences from extension storage

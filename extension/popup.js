@@ -10,22 +10,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   const inFieldTransformToggle = document.getElementById('inFieldTransformToggle');
   const autoEnterToggle = document.getElementById('autoEnterToggle');
   const showFloatingInputToggle = document.getElementById('showFloatingInputToggle');
-  const checkUpdatesBtn = document.getElementById('checkUpdatesBtn');
-  const updateBanner = document.getElementById('updateBanner');
-  const remoteVersionTag = document.getElementById('remoteVersionTag');
-  const pullUpdateBtn = document.getElementById('pullUpdateBtn');
 
   // Load preferences
-  extApi.storage.local.get(['showToast', 'inFieldTransform', 'autoEnter', 'showFloatingInput', 'remoteUpdateAvailable', 'remoteVersion'], (res) => {
+  extApi.storage.local.get(['showToast', 'inFieldTransform', 'autoEnter', 'showFloatingInput'], (res) => {
     if (res.showToast !== undefined) showToastToggle.checked = res.showToast;
     if (res.inFieldTransform !== undefined) inFieldTransformToggle.checked = res.inFieldTransform;
     if (res.autoEnter !== undefined) autoEnterToggle.checked = res.autoEnter;
     if (res.showFloatingInput !== undefined) showFloatingInputToggle.checked = res.showFloatingInput;
-
-    if (res.remoteUpdateAvailable && res.remoteVersion) {
-      updateBanner.style.display = 'block';
-      remoteVersionTag.textContent = `v${res.remoteVersion}`;
-    }
   });
 
   // Handle setting toggles
@@ -43,43 +34,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   showFloatingInputToggle.addEventListener('change', () => {
     extApi.storage.local.set({ showFloatingInput: showFloatingInputToggle.checked });
-  });
-
-  // Handle Pull Update button click
-  if (pullUpdateBtn) {
-    pullUpdateBtn.addEventListener('click', () => {
-      pullUpdateBtn.disabled = true;
-      pullUpdateBtn.textContent = 'Pulling...';
-
-      extApi.runtime.sendMessage({ action: 'PULL_REMOTE_UPDATE' }, (res) => {
-        if (res && res.success) {
-          alert(`✅ Successfully pulled and updated to v${res.version}!\nReloading extension now...`);
-        } else {
-          pullUpdateBtn.disabled = false;
-          pullUpdateBtn.textContent = 'Pull Update';
-          alert(`❌ Failed to pull update:\n${res?.error || 'Unknown error'}`);
-        }
-      });
-    });
-  }
-
-  // Handle Check Remote Updates button
-  checkUpdatesBtn.addEventListener('click', () => {
-    checkUpdatesBtn.disabled = true;
-    checkUpdatesBtn.textContent = 'Checking...';
-
-    extApi.runtime.sendMessage({ action: 'CHECK_FOR_UPDATES' }, (res) => {
-      checkUpdatesBtn.disabled = false;
-      checkUpdatesBtn.textContent = 'Check Remote Updates';
-
-      if (res && res.remoteUpdateAvailable) {
-        updateBanner.style.display = 'block';
-        remoteVersionTag.textContent = `v${res.remoteVersion}`;
-        alert(`🚀 Remote update available: v${res.remoteVersion}!\nClick "Pull Update" or click the notification to apply immediately without downloading files.`);
-      } else {
-        alert('✅ You are running the latest version across your PCs!');
-      }
-    });
   });
 
   // Handle Headless Background URL Scraping button

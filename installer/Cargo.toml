@@ -1,0 +1,13 @@
+[package]
+name = "invoice-scraper-setup"
+version = "3.0.0"
+edition = "2021"
+
+[dependencies]
+serde_json = "1"
+
+[target.'cfg(windows)'.dependencies]
+winreg = "0.52"
+
+[build-dependencies]
+embed-manifest = "1"
