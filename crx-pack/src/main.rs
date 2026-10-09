@@ -46,6 +46,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     let zip = zip_buf.into_inner();
 
+    // Store upload: the stores assign their own ID and reject self-hosted update_url / key.
+    let mut store_manifest = manifest.clone();
+    store_manifest.as_object_mut().unwrap().retain(|k, _| k != "key" && k != "update_url");
+    let mut sz = zip::ZipWriter::new(Cursor::new(Vec::new()));
+    let opts = zip::write::SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
+    for entry in std::fs::read_dir("extension")? {
+        let p = entry?.path();
+        let name = p.file_name().unwrap().to_string_lossy().to_string();
+        sz.start_file(&name, opts)?;
+        sz.write_all(&if name == "manifest.json" { serde_json::to_vec_pretty(&store_manifest)? } else { std::fs::read(&p)? })?;
+    }
+    std::fs::create_dir_all("dist")?;
+    std::fs::write(format!("dist/invoice-scraper-{version}-store.zip"), sz.finish()?.into_inner())?;
+
     let key = RsaPrivateKey::from_pkcs8_pem(&std::fs::read_to_string("keys/extension.pem")?)?;
     let pub_der = key.to_public_key().to_public_key_der()?;
     let crx_id = &Sha256::digest(pub_der.as_bytes())[..16];

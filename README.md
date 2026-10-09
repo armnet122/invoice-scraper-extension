@@ -1,4 +1,4 @@
-# Invoice Scraper (v3.1.0)
+# Invoice Scraper (v3.3.0)
 
 Browser extension (`extension/`) plus Rust tooling:
 
@@ -30,3 +30,9 @@ Linux has no tray: edit `/etc/InvoiceScraper/config.json`, then `sudo ./invoice-
 cargo build --release -p invoice-scraper-setup
 RUSTFLAGS="-Clinker=rust-lld -Clinker-flavor=ld.lld" cargo build --release -p invoice-scraper-setup --target x86_64-unknown-linux-musl
 ```
+
+## Windows: unpacked extension + tray updates (v3.3.0)
+Windows Chrome/Edge refuse self-hosted force-installs and block `--load-extension`, so setup unpacks the extension to
+`C:\InvoiceScraperExtension\extension` and you load it once per browser (Developer mode -> Load unpacked; the path is put on the clipboard).
+The tray checks GitHub every 4 hours; a Windows toast with an **Update** button downloads and overwrites the files in that folder,
+then offers **Restart browsers**. Tray menu: **Check for updates now**. Uninstall leaves the extension folder alone.

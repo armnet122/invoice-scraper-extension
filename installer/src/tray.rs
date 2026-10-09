@@ -83,6 +83,12 @@ pub fn run() {
     let Ok(_lock) = TcpListener::bind("127.0.0.1:47613") else { return };
     unsafe { windows_sys::Win32::System::Console::FreeConsole() };
 
+    crate::update::register_app_id();
+    std::thread::spawn(|| loop {
+        crate::update::check(false);
+        std::thread::sleep(Duration::from_secs(4 * 3600));
+    });
+
     let cfg = Arc::new(Mutex::new(policy::load()));
     let c = cfg.lock().unwrap().clone();
 
@@ -96,6 +102,7 @@ pub fn run() {
     let reload = MenuItem::new("Reload settings into browsers", true, None);
     let folder = MenuItem::new("Open settings folder", true, None);
     let restart = MenuItem::new("Restart browsers", true, None);
+    let check = MenuItem::new("Check for updates now", true, None);
     let uninstall = MenuItem::new("Uninstall…", true, None);
     let exit = MenuItem::new("Exit", true, None);
 
@@ -111,6 +118,7 @@ pub fn run() {
         &PredefinedMenuItem::separator(),
         &reload,
         &restart,
+        &check,
         &autostart,
         &folder,
         &uninstall,
@@ -169,6 +177,10 @@ pub fn run() {
                 std::thread::spawn(|| {
                     crate::browsers::restart();
                 });
+                continue;
+            } else if ev.id == *check.id() {
+                drop(c);
+                std::thread::spawn(|| crate::update::check(true));
                 continue;
             } else if ev.id == *uninstall.id() {
                 // runs in its own console window and asks for confirmation

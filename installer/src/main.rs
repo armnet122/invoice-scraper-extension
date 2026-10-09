@@ -8,6 +8,8 @@ mod browsers;
 mod policy;
 #[cfg(windows)]
 mod tray;
+#[cfg(windows)]
+mod update;
 
 use std::io::{self, Write};
 
@@ -55,6 +57,10 @@ fn install() -> io::Result<()> {
         }
         // Run from the installed copy so the scheduled task path stays valid.
         tray::set_autostart(true);
+        match update::latest().and_then(|r| update::install(&r).map(|_| r.version)) {
+            Ok(v) => println!("[ok] extension v{v} unpacked to {}", update::EXT_DIR),
+            Err(e) => println!("[!] could not download the extension ({e}); the tray will retry"),
+        }
         std::process::Command::new(&exe).arg("tray").spawn()?;
         println!("[ok] tray icon started (right-click it for settings)");
 
@@ -65,8 +71,21 @@ fn install() -> io::Result<()> {
         k.set_value("UninstallString", &format!("\"{}\" uninstall", exe.display()))?;
         k.set_value("NoModify", &1u32)?;
     }
-    if confirm("Restart your browsers now so the extension loads? Open tabs are restored.", true) {
+    if confirm("Restart your browsers now so the new settings load? Open tabs are restored.", true) {
         restart_browsers();
+    }
+    #[cfg(windows)]
+    {
+        let _ = std::process::Command::new("cmd").args(["/C", &format!("echo {}| clip", update::EXT_DIR)]).output();
+        println!(
+            "
+One-time step per browser (Windows blocks doing this silently):
+  1. open chrome://extensions (edge://extensions, brave://extensions)
+  2. turn on Developer mode
+  3. Load unpacked -> paste {} (already on your clipboard)
+After that, updates arrive through the tray icon.",
+            update::EXT_DIR
+        );
     }
     Ok(())
 }
@@ -76,7 +95,7 @@ fn uninstall() -> io::Result<()> {
         println!("Cancelled.");
         return Ok(());
     }
-    let off = policy::Config { enabled: false, ..policy::load() };
+    let off = policy::Config { enabled: false, purge: true, ..policy::load() };
     for b in policy::apply(&off)? {
         println!("[removed] {b}");
     }

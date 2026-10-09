@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::{fs, io, path::PathBuf};
 
 pub const EXT_ID: &str = "glhjedpaiamdajihaejimgfpnlagdpej";
+#[cfg(not(windows))]
 pub const UPDATE_URL: &str = "https://raw.githubusercontent.com/armnet122/invoice-scraper-extension/main/updates.xml";
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -15,6 +16,9 @@ pub struct Config {
     pub auto_enter: bool,
     pub show_floating_input: bool,
     pub autostart: bool,
+    /// Uninstall: remove all policy instead of writing it.
+    #[serde(skip)]
+    pub purge: bool,
 }
 
 impl Default for Config {
@@ -26,6 +30,7 @@ impl Default for Config {
             auto_enter: true,
             show_floating_input: true,
             autostart: true,
+            purge: false,
         }
     }
 }
@@ -79,6 +84,7 @@ pub fn parse_domains(text: &str) -> Result<Vec<String>, String> {
     Ok(out)
 }
 
+#[cfg(not(windows))]
 fn entry() -> String {
     format!("{EXT_ID};{UPDATE_URL}")
 }
@@ -112,15 +118,15 @@ mod os {
             }
             let base = format!(r"{path}\3rdparty\extensions\{EXT_ID}");
             let _ = hklm.delete_subkey_all(&base);
-            if cfg.enabled {
-                let slot = (1..).map(|i| i.to_string()).find(|n| list.get_value::<String, _>(n).is_err()).unwrap();
-                list.set_value(&slot, &entry())?;
+            // Windows browsers refuse self-hosted force-installs, so the extension is loaded unpacked;
+            // policy only carries settings. When disabled, an empty domain list stops it running anywhere.
+            if !cfg.purge {
                 let (pol, _) = hklm.create_subkey(format!(r"{base}\policy"))?;
                 pol.set_value("showToast", &(cfg.show_toast as u32))?;
                 pol.set_value("autoEnter", &(cfg.auto_enter as u32))?;
                 pol.set_value("showFloatingInput", &(cfg.show_floating_input as u32))?;
                 let (doms, _) = pol.create_subkey("domains")?;
-                for (i, d) in cfg.domains.iter().enumerate() {
+                for (i, d) in cfg.domains.iter().filter(|_| cfg.enabled).enumerate() {
                     doms.set_value((i + 1).to_string(), d)?;
                 }
             }
