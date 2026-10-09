@@ -395,7 +395,7 @@ function initMinimalFloatingInput() {
   makeDraggableAndPersist(container);
 
   const processFloatingUrl = () => {
-    const rawUrl = input.value.trim();
+    const rawUrl = input.value.trim().toLowerCase();
     if (!rawUrl) return;
 
     showToast('Opening tab to extract Invoice #...', 'info');

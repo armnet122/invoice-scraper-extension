@@ -102,7 +102,7 @@ function parseInvoiceNumberFromHtml(html, url = '') {
  * @returns {Promise<{success: boolean, invoiceNumber?: string, error?: string}>}
  */
 async function openScrapeAndCloseTab(rawUrl) {
-  let targetUrl = rawUrl.trim();
+  let targetUrl = rawUrl.trim().toLowerCase();
   if (!/^https?:\/\//i.test(targetUrl) && !/^file:\/\//i.test(targetUrl)) {
     targetUrl = 'https://' + targetUrl;
   }
@@ -112,11 +112,11 @@ async function openScrapeAndCloseTab(rawUrl) {
   try {
     newTab = await extApi.tabs.create({ url: targetUrl, active: false });
 
-    await new Promise((resolve, reject) => {
+    await new Promise((resolve) => {
       const timeout = setTimeout(() => {
         extApi.tabs.onUpdated.removeListener(onUpdatedListener);
-        reject(new Error('Tab load timeout (10s)'));
-      }, 10000);
+        resolve(); // keep polling even if the load is slow
+      }, 15000);
 
       function onUpdatedListener(tabId, changeInfo) {
         if (tabId === newTab.id && changeInfo.status === 'complete') {
@@ -130,9 +130,9 @@ async function openScrapeAndCloseTab(rawUrl) {
     });
 
     let extractedInvoiceNum = null;
-    const maxAttempts = 12;
+    const maxAttempts = 20; // 20 x 250ms = 5s wait for slow SPA pages
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      await new Promise(r => setTimeout(r, 300));
+      await new Promise(r => setTimeout(r, 250));
       
       const res = await new Promise((resolve) => {
         extApi.tabs.sendMessage(newTab.id, { action: 'GET_INVOICE_NUMBER' }, (response) => {
