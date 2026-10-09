@@ -95,6 +95,8 @@ pub fn run() {
     let autostart = CheckMenuItem::new("Start with Windows", true, c.autostart, None);
     let reload = MenuItem::new("Reload settings into browsers", true, None);
     let folder = MenuItem::new("Open settings folder", true, None);
+    let restart = MenuItem::new("Restart browsers", true, None);
+    let uninstall = MenuItem::new("Uninstall…", true, None);
     let exit = MenuItem::new("Exit", true, None);
 
     let menu = Menu::new();
@@ -108,8 +110,10 @@ pub fn run() {
         &floating,
         &PredefinedMenuItem::separator(),
         &reload,
+        &restart,
         &autostart,
         &folder,
+        &uninstall,
         &PredefinedMenuItem::separator(),
         &exit,
     ])
@@ -160,6 +164,16 @@ pub fn run() {
             } else if ev.id == *autostart.id() {
                 c.autostart = autostart.is_checked();
                 set_autostart(c.autostart);
+            } else if ev.id == *restart.id() {
+                drop(c);
+                std::thread::spawn(|| {
+                    crate::browsers::restart();
+                });
+                continue;
+            } else if ev.id == *uninstall.id() {
+                // runs in its own console window and asks for confirmation
+                let _ = Command::new(std::env::current_exe().unwrap()).arg("uninstall").spawn();
+                continue;
             } else if ev.id == *folder.id() {
                 let _ = Command::new("explorer").arg(policy::config_dir()).spawn();
                 continue;
